@@ -1,7 +1,4 @@
-Python 서버에서 hosts 파일의 내용을 CMD에서 출력하고 싶다면, 해당 파일을 서버가 시작될 때 읽어 출력하도록 코드를 수정할 수 있습니다. Windows의 hosts 파일 경로는 일반적으로 C:\Windows\System32\drivers\etc\hosts에 위치합니다. 아래 코드는 서버 시작 시 hosts 파일의 내용을 출력하도록 수정된 코드입니다:
-
 from http.server import BaseHTTPRequestHandler, HTTPServer
-import os
 
 class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
     def do_POST(self):
@@ -9,14 +6,15 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
             content_length = int(self.headers.get('Content-Length', 0))
             post_data = self.rfile.read(content_length)
 
-            # 수신된 데이터 출력
+            # Host 헤더 정보를 가져와서 출력
+            host_info = self.headers.get('Host')
+            print(f"Host 정보: {host_info}")
+
             print(f"Received data: {post_data}")
 
-            # 파일로 데이터 저장
             with open("received_file.txt", "wb") as file:
                 file.write(post_data)
 
-            # 응답 전송
             self.send_response(200)
             self.send_header('Content-type', 'text/html')
             self.end_headers()
@@ -29,35 +27,8 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
             print(error_message)
             self.wfile.write(error_message.encode())
 
-def read_hosts_file():
-    # Windows의 hosts 파일 경로
-    hosts_file_path = r"C:\Windows\System32\drivers\etc\hosts"
-    
-    if os.path.exists(hosts_file_path):
-        with open(hosts_file_path, 'r') as hosts_file:
-            hosts_data = hosts_file.read()
-            print(f"hosts 파일 내용:\n{hosts_data}")
-    else:
-        print("hosts 파일을 찾을 수 없습니다.")
-
 if __name__ == "__main__":
-    # 서버 시작 전에 hosts 파일 내용 출력
-    read_hosts_file()
-    
-    # HTTP 서버 시작
     server_address = ('', 8000)
     httpd = HTTPServer(server_address, SimpleHTTPRequestHandler)
     print("server running on port 8000....")
     httpd.serve_forever()
-
-설명:
-
-1. read_hosts_file 함수가 추가되어 서버가 시작되기 전에 hosts 파일의 내용을 읽어 cmd에서 출력합니다.
-
-
-2. 이 코드는 서버가 시작되기 전에 hosts 파일을 열어 내용을 출력하며, 서버는 이후 POST 요청을 받아 파일을 저장하는 기존 기능을 유지합니다.
-
-
-
-이 방식으로, Python 서버가 실행될 때 hosts 파일의 내용이 cmd에 출력됩니다.
-
