@@ -1,0 +1,8 @@
+Solution Bypass
+
+1. Pssusend
+프로세스 일시 중단 : ssuspend "process name"
+
+
+2.Solution 정책으로 인해 프로그램 차단
+차단된 프로그램 명 변경을 통한 정책 우회 : Burpsuite.exe -> Burpsuite2.exe
