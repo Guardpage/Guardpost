@@ -94,10 +94,23 @@ def get_column_names(table_name, limit=0):
     print(Fore.CYAN + f"[완료] 총 {len(columns)}개의 컬럼 이름 추출:\n" + "\n".join(columns))
     return columns
 
+# 특정 테이블의 모든 컬럼 데이터를 추출하는 함수
+def get_all_column_data(table_name, limit=0):
+    columns = get_column_names(table_name)  # 해당 테이블의 모든 컬럼명을 추출
+    all_data = {}
+
+    for column in columns:
+        print(Fore.CYAN + f"\n[정보] '{table_name}' 테이블의 '{column}' 컬럼 데이터를 찾고 있습니다...")
+        column_data = get_column_data(table_name, column, limit)
+        all_data[column] = column_data
+    
+    return all_data
+
 # 특정 테이블 컬럼의 데이터 추출 함수
 def get_column_data(table_name, column_name, limit=0):
     data = []
     print(Fore.CYAN + f"[정보] '{table_name}' 테이블의 '{column_name}' 컬럼 데이터를 찾고 있습니다...")
+
     for index in range(0, limit or 100):  # 사용자가 지정한 개수만큼 또는 최대 100개 데이터 행
         row_data = ""
         for i in range(1, 50):  # 데이터 길이 최대 50자 가정
@@ -146,7 +159,7 @@ def main():
         print("3. 컬럼 추출")
         print("4. 데이터 추출")
         print("5. 종료")
-        choice = input(Fore.MAGENTA + "추출할 개수를 선택하세요: ")
+        choice = input(Fore.MAGENTA + "작업을 선택하세요: ")
 
         if choice == "1":
             db_name = get_database_name()
@@ -161,10 +174,15 @@ def main():
             ask_to_save({"Column Names": columns}, f"{table_name}_columns.xlsx")
         elif choice == "4":
             table_name = input(Fore.MAGENTA + "데이터를 가져올 테이블 이름을 입력하세요: ")
-            column_name = input(Fore.MAGENTA + "데이터를 가져올 컬럼 이름을 입력하세요: ")
+            column_name = input(Fore.MAGENTA + "데이터를 가져올 컬럼 이름을 입력하세요 (ALL 입력 시 모든 컬럼의 데이터 추출): ")
             limit = int(input(Fore.MAGENTA + "추출할 데이터 개수를 입력하세요 (0 입력 시 전체 추출): "))
-            data = get_column_data(table_name, column_name, limit)
-            ask_to_save({column_name: data}, f"{table_name}_{column_name}_data.xlsx")
+            
+            if column_name.upper() == "ALL":
+                data = get_all_column_data(table_name, limit)
+                ask_to_save(data, f"{table_name}_all_columns_data.xlsx")
+            else:
+                data = get_column_data(table_name, column_name, limit)
+                ask_to_save({column_name: data}, f"{table_name}_{column_name}_data.xlsx")
         elif choice == "5":
             print(Fore.RED + "프로그램을 종료합니다.")
             break
