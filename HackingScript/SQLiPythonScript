@@ -177,8 +177,12 @@ if __name__ == "__main__":
 
 
 설치해야 할 라이브러리:
-이 스크립트를 실행하기 전에 pandas와 openpyxl 라이브러리를 설치해야 합니다. 다음 명령어로 설치할 수 있습니다.
-pip install pandas openpyxl
+requests: HTTP 요청을 보내고 응답을 처리합니다.
+pandas: 추출한 데이터를 구조화하고 엑셀로 저장할 때 사용합니다.
+openpyxl: pandas와 함께 엑셀 파일을 생성하고 수정할 때 필요합니다.
+colorama: 터미널에서 텍스트 색상을 적용하여 가독성을 높입니다.
+
+pip install requests pandas openpyxl colorama
 
 사용 방법:
 1. url = # 대상 url 지정
