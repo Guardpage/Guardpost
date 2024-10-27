@@ -146,7 +146,7 @@ def main():
         print("3. 컬럼 추출")
         print("4. 데이터 추출")
         print("5. 종료")
-        choice = input(Fore.MAGENTA + "원하는 작업을 선택하세요: ")
+        choice = input(Fore.MAGENTA + "추출할 개수를 선택하세요: ")
 
         if choice == "1":
             db_name = get_database_name()
