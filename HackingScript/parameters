@@ -1,3 +1,5 @@
+#명령어:pip install pandas openpyxl
+#python version: 3.6부터 구동 가능한 것을 확인
 # 특정 파라미터의 데이터를 뽑아내기 위한 스크립트
 # 사용방법
 # 1.특정 파라미터 이름 지정 14 line 예시) Parameters = ["password1", "password2"]
