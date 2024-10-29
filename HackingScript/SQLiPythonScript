@@ -3,7 +3,7 @@
 # pandas: 추출한 데이터를 구조화하고 엑셀로 저장할 때 사용합니다.
 # openpyxl: pandas와 함께 엑셀 파일을 생성하고 수정할 때 필요합니다.
 # colorama: 터미널에서 텍스트 색상을 적용하여 가독성을 높입니다.
-# python versin : 3.12.x부터 구동 가능한 것을 확인
+# python versin : 3.6부터 구동 가능한 것을 확인
 # 명령어: pip install requests pandas openpyxl colorama
 
 # 사용 방법:
