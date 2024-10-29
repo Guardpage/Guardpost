@@ -5,8 +5,8 @@ import pandas as pd
 with open("packet_data.txt", "r", encoding="utf-8", errors="ignore") as file:
     data = file.read()
 
-# "password" 파라미터 값을 추출하는 정규 표현식
-passwords = re.findall(r"password=([^&\s]+)", data)
+# "password:" 뒤에 오는 값을 추출하는 정규 표현식
+passwords = re.findall(r"password:([^\s]+)", data)
 
 # 데이터프레임으로 변환하여 엑셀로 저장
 df = pd.DataFrame(passwords, columns=["Password"])
