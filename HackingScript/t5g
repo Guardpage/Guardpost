@@ -11,3 +11,10 @@ passwords = re.findall(r"password=([^&\s]+)", data)
 # 데이터프레임으로 변환하여 엑셀로 저장
 df = pd.DataFrame(passwords, columns=["Password"])
 df.to_excel("passwords.xlsx", index=False)
+
+
+Traceback (most recent call last):
+  File "C:\Users\X0145765\Downloads\password.py", line 6, in <module>
+    data = file.read()
+           ^^^^^^^^^^^
+UnicodeDecodeError: 'cp949' codec can't decode byte 0xec in position 322: illegal multibyte sequence
