@@ -1,13 +1,27 @@
 import re
 import pandas as pd
 
+# 추출할 파라미터 목록
+parameters = ["password", "username", "email", "password2"]
+
 # 텍스트 파일에서 데이터를 읽어옵니다 (인코딩을 utf-8로 지정하고 에러 무시)
 with open("packet_data.txt", "r", encoding="utf-8", errors="ignore") as file:
     data = file.read()
 
-# "password" 또는 "password2" 뒤에 오는 값을 추출하는 정규 표현식
-passwords = re.findall(r"(password|password2):([\w]+)", data)
+# 지정한 파라미터 이름 뒤에 오는 값을 추출하는 정규 표현식
+pattern = r"(" + "|".join(parameters) + r")\:([\w]+)"
+matches = re.findall(pattern, data)
 
-# 결과를 데이터프레임으로 변환
-df = pd.DataFrame(passwords, columns=["Parameter", "Value"])
-df.to_excel("passwords.xlsx", index=False)
+# 추출된 결과를 딕셔너리로 변환하여 파라미터별로 값 저장
+result_dict = {param: [] for param in parameters}
+for param, value in matches:
+    result_dict[param].append(value)
+
+# 각 파라미터 리스트의 길이를 맞추기 위해 None 값으로 채움
+max_len = max(len(values) for values in result_dict.values())
+for param, values in result_dict.items():
+    values.extend([None] * (max_len - len(values)))
+
+# 딕셔너리를 데이터프레임으로 변환하여 엑셀로 저장
+df = pd.DataFrame(result_dict)
+df.to_excel("parameters.xlsx", index=False)
