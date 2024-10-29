@@ -1,3 +1,16 @@
+# 설치해야 할 라이브러리:
+# requests: HTTP 요청을 보내고 응답을 처리합니다.
+# pandas: 추출한 데이터를 구조화하고 엑셀로 저장할 때 사용합니다.
+# openpyxl: pandas와 함께 엑셀 파일을 생성하고 수정할 때 필요합니다.
+# colorama: 터미널에서 텍스트 색상을 적용하여 가독성을 높입니다.
+# python versin : 3.12.x부터 구동 가능한 것을 확인
+# 명령어: pip install requests pandas openpyxl colorama
+
+# 사용 방법:
+# 1. url = # 대상 url 지정
+# 2. param_name = # 공격할 파라미터 이름 지정
+# 3.공격할 구문 지정
+
 import requests
 import pandas as pd
 from colorama import Fore, Style, init
@@ -194,16 +207,4 @@ if __name__ == "__main__":
     main()
 
 
-설치해야 할 라이브러리:
-requests: HTTP 요청을 보내고 응답을 처리합니다.
-pandas: 추출한 데이터를 구조화하고 엑셀로 저장할 때 사용합니다.
-openpyxl: pandas와 함께 엑셀 파일을 생성하고 수정할 때 필요합니다.
-colorama: 터미널에서 텍스트 색상을 적용하여 가독성을 높입니다.
-
-pip install requests pandas openpyxl colorama
-
-사용 방법:
-1. url = # 대상 url 지정
-2. param_name = # 공격할 파라미터 이름 지정
-3.공격할 구문 지정
 
