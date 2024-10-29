@@ -1,8 +1,8 @@
 import re
 import pandas as pd
 
-# 텍스트 파일에서 데이터를 읽어옵니다
-with open("packet_data.txt", "r") as file:
+# 텍스트 파일에서 데이터를 읽어옵니다 (인코딩을 cp949로 지정)
+with open("packet_data.txt", "r", encoding="cp949") as file:
     data = file.read()
 
 # "password" 파라미터 값을 추출하는 정규 표현식
