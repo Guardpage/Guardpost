@@ -1,5 +1,9 @@
 import re
 import pandas as pd
+from openpyxl import Workbook
+from openpyxl.utils.dataframe import dataframe_to_rows
+from openpyxl.styles import PatternFill, Font, Alignment
+import os
 
 # 추출할 파라미터 목록
 parameters = ["password", "username", "email", "password2"]
@@ -22,6 +26,37 @@ max_len = max(len(values) for values in result_dict.values())
 for param, values in result_dict.items():
     values.extend([None] * (max_len - len(values)))
 
-# 딕셔너리를 데이터프레임으로 변환하여 엑셀로 저장
+# 딕셔너리를 데이터프레임으로 변환
 df = pd.DataFrame(result_dict)
-df.to_excel("parameters.xlsx", index=False)
+
+# 파일 이름 중복 방지를 위한 로직
+file_index = 1
+file_name = "parameters.xlsx"
+while os.path.exists(file_name):
+    file_name = f"parameters{file_index}.xlsx"
+    file_index += 1
+
+# 엑셀 워크북 생성 및 데이터 추가
+wb = Workbook()
+ws = wb.active
+ws.title = "Parameters"
+
+# 표 형식으로 데이터프레임 추가
+for r_idx, row in enumerate(dataframe_to_rows(df, index=False, header=True), 1):
+    for c_idx, value in enumerate(row, 1):
+        cell = ws.cell(row=r_idx, column=c_idx, value=value)
+        
+        # 첫 번째 행 스타일 적용
+        if r_idx == 1:
+            cell.fill = PatternFill(start_color="CCCCCC", end_color="CCCCCC", fill_type="solid")
+            cell.font = Font(bold=True)
+            cell.alignment = Alignment(horizontal="center", vertical="center")
+
+# 열 너비를 내용에 맞춰 자동 조정
+for column_cells in ws.columns:
+    max_length = max(len(str(cell.value)) if cell.value is not None else 0 for cell in column_cells)
+    adjusted_width = (max_length + 2) * 1.2  # 여백 포함
+    ws.column_dimensions[column_cells[0].column_letter].width = adjusted_width
+
+# 파일 저장
+wb.save(file_name)
