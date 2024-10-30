@@ -189,9 +189,9 @@ def get_all_column_data(table_name, limit=0):
 # 요청 전송 함수
 def send_request(params):
     if request_method == "POST":
-        return requests.post(url, data=params, timeout=10)
+        return requests.post(url, data=params, timeout=10, verify=False)
     elif request_method == "GET":
-        return requests.get(url, params=params, timeout=10)
+        return requests.get(url, params=params, timeout=10, verify=False)
     else:
         raise ValueError("잘못된 요청 방식입니다. GET 또는 POST만 가능합니다.")
 
