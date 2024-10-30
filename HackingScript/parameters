@@ -6,34 +6,38 @@ from openpyxl.styles import PatternFill, Font, Alignment
 import os
 from datetime import datetime
 
-# 첨언할 파라미터 목록
+# 추출할 파라미터 목록
 parameters = ["password", "username", "email", "password2"]
 
-# 텍스트 파일에서 데이터를 읽어와요 (uc778코동을 utf-8로 지정하고 여러 문제를 미부타임)
+# 텍스트 파일에서 데이터를 읽어옴 (인코딩을 utf-8로 지정하고 여러 문제를 무시)
 with open("packet_data.txt", "r", encoding="utf-8", errors="ignore") as file:
     data = file.read()
 
-# 지정한 파라미터 이름 뒤에 왔는 값을 추출하는 정권 표현식
+# 지정한 파라미터 이름 뒤에 오는 값을 추출하는 정규 표현식
 pattern = r"(" + "|".join(parameters) + r")\:([\w]+)"
 matches = re.findall(pattern, data)
 
-# 추출된 결과를 딕션리바랤서 파라미터별로 값 저장
+# 추출된 결과를 딕셔너리로 변환하여 파라미터별로 값 저장
 result_dict = {param: [] for param in parameters}
 for param, value in matches:
     result_dict[param].append(value)
 
-# 각 파라미터 리스트의 길이를 맞으기 위해 None 값으로 채우기
+# 각 파라미터 리스트의 길이를 맞추기 위해 None 값으로 채우기
 max_len = max(len(values) for values in result_dict.values())
 for param, values in result_dict.items():
     values.extend([None] * (max_len - len(values)))
 
-# 딕션리바랤을 데이터프레임으로 변환
+# 딕셔너리를 데이터프레임으로 변환
 df = pd.DataFrame(result_dict)
 
-# 파일 이름을 오늘 날짜로 지정
+# 파일 이름을 오늘 날짜로 지정하고 중복 방지
+file_index = 1
 file_name = datetime.now().strftime("%Y-%m-%d") + ".xlsx"
+while os.path.exists(file_name):
+    file_name = datetime.now().strftime("%Y-%m-%d") + f"({file_index}).xlsx"
+    file_index += 1
 
-# 엔콜 워크북 생성 및 데이터 추가
+# 엑셀 워크북 생성 및 데이터 추가
 wb = Workbook()
 ws = wb.active
 ws.title = "Parameters"
@@ -43,17 +47,20 @@ for r_idx, row in enumerate(dataframe_to_rows(df, index=False, header=True), 1):
     for c_idx, value in enumerate(row, 1):
         cell = ws.cell(row=r_idx, column=c_idx, value=value)
         
-        # 한 번째 행 스타일 적용
+        # 첫 번째 행 스타일 적용
         if r_idx == 1:
             cell.fill = PatternFill(start_color="CCCCCC", end_color="CCCCCC", fill_type="solid")
             cell.font = Font(bold=True)
             cell.alignment = Alignment(horizontal="center", vertical="center")
 
-# 열 나비를 내용에 맞이서 자동 조정
+# 열 너비를 내용에 맞춰 자동 조정
 for column_cells in ws.columns:
     max_length = max(len(str(cell.value)) if cell.value is not None else 0 for cell in column_cells)
-    adjusted_width = (max_length + 2) * 1.2  # 여랩 포함
+    adjusted_width = (max_length + 2) * 1.2  # 여백 포함
     ws.column_dimensions[column_cells[0].column_letter].width = adjusted_width
 
 # 파일 저장
 wb.save(file_name)
+
+# 완료 메시지 출력
+print(f"엑셀 추출이 정상적으로 완료되었습니다. 저장된 경로: {os.path.abspath(file_name)}")
