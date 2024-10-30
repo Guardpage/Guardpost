@@ -88,10 +88,10 @@ def get_database_name():
     return db_name
 
 # 테이블 이름 추출 함수
-def get_table_names(limit=0):
+def get_table_names(limit="ALL"):
     tables = []
     print("[정보] 데이터베이스의 테이블 이름을 찾고 있습니다...")
-    for index in range(0, limit or 100):  # 최대 100개 테이블 또는 사용자 지정 개수
+    for index in range(0, 100 if limit == "ALL" else limit):  # 최대 100개 테이블 또는 사용자 지정 개수
         table_name = ""
         for i in range(1, 50):  # 최대 테이블 이름 길이 50자 가정
             found_char = False
@@ -117,10 +117,10 @@ def get_table_names(limit=0):
     return tables
 
 # 컬럼 이름 추출 함수
-def get_column_names(table_name, limit=0):
+def get_column_names(table_name, limit="ALL"):
     columns = []
     print(f"[정보] '{table_name}' 테이블의 컬럼명을 찾고 있습니다...")
-    for index in range(0, limit or 100):  # 최대 100개 컬럼 또는 사용자 지정 개수
+    for index in range(0, 100 if limit == "ALL" else limit):  # 최대 100개 컬럼 또는 사용자 지정 개수
         column_name = ""
         for i in range(1, 50):  # 최대 컬럼 이름 길이 50자 가정
             found_char = False
@@ -146,11 +146,11 @@ def get_column_names(table_name, limit=0):
     return columns
 
 # 특정 테이블 컬럼의 데이터 추출 함수
-def get_column_data(table_name, column_name, limit=0):
+def get_column_data(table_name, column_name, limit="ALL"):
     data = []
     print(f"[정보] '{table_name}' 테이블의 '{column_name}' 컬럼 데이터를 찾고 있습니다...")
 
-    for index in range(0, limit or 100):  # 최대 100개 데이터 행 또는 사용자 지정 개수
+    for index in range(0, 100 if limit == "ALL" else limit):  # 최대 100개 데이터 행 또는 사용자 지정 개수
         row_data = ""
         for i in range(1, 50):  # 데이터 길이 최대 50자 가정
             found_char = False
@@ -176,7 +176,7 @@ def get_column_data(table_name, column_name, limit=0):
     return data
 
 # 모든 컬럼 데이터 추출 함수
-def get_all_column_data(table_name, limit=0):
+def get_all_column_data(table_name, limit="ALL"):
     columns = get_column_names(table_name)  # 해당 테이블의 모든 컬럼명을 추출
     all_data = {}
 
@@ -217,18 +217,18 @@ def main():
             db_name = get_database_name()
             ask_to_save({"Database Name": [db_name]}, "database_name")
         elif choice == "2":
-            limit = int(input("추출할 테이블 개수를 입력하세요 (0 입력 시 전체 추출): "))
+            limit = input("추출할 테이블 개수를 입력하세요 (ALL 입력 시 전체 추출): ").strip().upper()
             tables = get_table_names(limit)
             ask_to_save({"Table Names": tables}, "tables")
         elif choice == "3":
             table_name = input("컬럼을 가져올 테이블 이름을 입력하세요: ")
-            limit = int(input("추출할 컬럼 개수를 입력하세요 (0 입력 시 전체 추출): "))
+            limit = input("추출할 컬럼 개수를 입력하세요 (ALL 입력 시 전체 추출): ").strip().upper()
             columns = get_column_names(table_name, limit)
             ask_to_save({"Column Names": columns}, f"{table_name}_columns")
         elif choice == "4":
             table_name = input("데이터를 가져올 테이블 이름을 입력하세요: ")
             column_name = input("데이터를 가져올 컬럼 이름을 입력하세요 (ALL 입력 시 모든 컬럼의 데이터 추출): ")
-            limit = int(input("추출할 데이터 개수를 입력하세요 (0 입력 시 전체 추출): "))
+            limit = input("추출할 데이터 개수를 입력하세요 (ALL 입력 시 전체 추출): ").strip().upper()
             
             if column_name.upper() == "ALL":
                 data = get_all_column_data(table_name, limit)
