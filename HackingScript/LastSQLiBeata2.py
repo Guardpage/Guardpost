@@ -5,6 +5,7 @@ import os
 import time
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill
+from datetime import datetime
 
 # 설정 정보
 url = "http://testphp.vulnweb.com/artists.php"  # 대상 URL
@@ -148,7 +149,15 @@ def send_request(params):
         raise ValueError("잘못된 요청 방식입니다. GET 또는 POST만 가능합니다.")
 
 # 엑셀 저장 함수
-def save_to_excel(data, headers, filename):
+def save_to_excel(data, headers, base_filename):
+    # 파일명 생성 (오늘의 날짜 사용)
+    date_str = datetime.now().strftime("%Y-%m-%d")
+    filename = f"{base_filename}_{date_str}.xlsx"
+    count = 1
+    while os.path.exists(filename):
+        filename = f"{base_filename}_{date_str}({count}).xlsx"
+        count += 1
+
     wb = Workbook()
     ws = wb.active
     ws.title = "Extracted Data"
@@ -229,13 +238,13 @@ def main():
                 print(tabulate(data_rows, headers=all_data.keys(), tablefmt="grid"))
                 save_choice = input("데이터를 엑셀로 저장하시겠습니까? (Y/N): ").strip().upper()
                 if save_choice == "Y":
-                    save_to_excel(data_rows, list(all_data.keys()), "extracted_data.xlsx")
+                    save_to_excel(data_rows, list(all_data.keys()), "extracted_data")
             else:
                 data = get_column_data(table_name, column_name, limit)
                 print(tabulate([[d] for d in data] if data else [], headers=[column_name], tablefmt="grid"))
                 save_choice = input("데이터를 엑셀로 저장하시겠습니까? (Y/N): ").strip().upper()
                 if save_choice == "Y":
-                    save_to_excel([[d] for d in data], [column_name], "extracted_data.xlsx")
+                    save_to_excel([[d] for d in data], [column_name], "extracted_data")
         elif choice == "5":
             print("프로그램을 종료합니다.")
             break
