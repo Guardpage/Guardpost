@@ -6,6 +6,10 @@ import time
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill
 from datetime import datetime
+import urllib3
+
+# InsecureRequestWarning 무시 설정
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # 설정 정보
 url = "http://testphp.vulnweb.com/artists.php"  # 대상 URL
