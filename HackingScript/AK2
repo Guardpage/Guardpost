@@ -46,8 +46,8 @@ def send_request(params):
     else:
         raise ValueError("잘못된 요청 방식입니다. GET 또는 POST만 가능합니다.")
 
-# 데이터베이스 이름 추출 함수
-def get_database_names():
+# 모든 데이터베이스 이름 추출 함수
+def get_all_database_names():
     db_names = []
     print("[정보] 데이터베이스 이름을 찾고 있습니다...")
     for index in range(1, 101):  # 최대 100개 데이터베이스 가정
@@ -72,14 +72,14 @@ def get_database_names():
             print(f"[데이터베이스 발견] {index}번째 데이터베이스 이름: {db_name}")
         else:
             break
-    print(tabulate([[db] for db in db_names] if db_names else [], headers=["Database Names"], tablefmt="grid"))
+    print(tabulate([[d] for d in db_names] if db_names else [], headers=["Database Names"], tablefmt="grid"))
     print(f"총 {len(db_names)}건")
     return db_names
 
-# 테이블 이름 추출 함수
+# 특정 데이터베이스의 테이블 이름 추출 함수
 def get_table_names(db_name, limit="ALL"):
     tables = []
-    print(f"[정보] 데이터베이스 '{db_name}'의 테이블 이름을 찾고 있습니다...")
+    print(f"[정보] '{db_name}' 데이터베이스의 테이블 이름을 찾고 있습니다...")
     for index in range(1, 101 if limit == "ALL" else int(limit) + 1):  # 최대 100개 테이블 또는 사용자 지정 개수
         table_name = ""
         for i in range(1, 50):  # 최대 테이블 이름 길이 50자 가정
@@ -106,10 +106,10 @@ def get_table_names(db_name, limit="ALL"):
     print(f"총 {len(tables)}건")
     return tables
 
-# 컬럼 이름 추출 함수
-def get_column_names(table_name, limit="ALL"):
+# 이후 함수들도 특정 데이터베이스 이름을 인자로 받아 테이블과 컬럼을 추출하도록 수정
+def get_column_names(db_name, table_name, limit="ALL"):
     columns = []
-    print(f"[정보] '{table_name}' 테이블의 컬럼명을 찾고 있습니다...")
+    print(f"[정보] '{db_name}' 데이터베이스의 '{table_name}' 테이블의 컬럼명을 찾고 있습니다...")
     for index in range(1, 101 if limit == "ALL" else int(limit) + 1):  # 최대 100개 컬럼 또는 사용자 지정 개수
         column_name = ""
         for i in range(1, 50):  # 최대 컬럼 이름 길이 50자 가정
@@ -216,8 +216,8 @@ def main():
         print("\n[옵션 선택]")
         print("1. 모든 데이터베이스 추출")
         print("2. 특정 데이터베이스의 테이블 추출")
-        print("3. 특정 테이블의 컬럼 추출")
-        print("4. 특정 테이블의 컬럼 데이터 추출")
+        print("3. 테이블 컬럼 추출")
+        print("4. 테이블 데이터 추출")
         print("5. 종료")
         choice = input("작업을 선택하세요: ")
 
@@ -228,22 +228,24 @@ def main():
                 continue
 
         if choice == "1":
-            db_names = get_database_names()
+            db_names = get_all_database_names()
         elif choice == "2":
-            db_name = input("테이블을 가져올 데이터베이스 이름을 입력하세요: ")
+            db_name = input("테이블을 추출할 데이터베이스 이름을 입력하세요: ")
             limit = input("추출할 테이블 개수를 입력하세요 (ALL 입력 시 전체 추출): ").strip().upper()
             tables = get_table_names(db_name, limit)
         elif choice == "3":
+            db_name = input("컬럼을 추출할 데이터베이스 이름을 입력하세요: ")
             table_name = input("컬럼을 가져올 테이블 이름을 입력하세요: ")
             limit = input("추출할 컬럼 개수를 입력하세요 (ALL 입력 시 전체 추출): ").strip().upper()
-            columns = get_column_names(table_name, limit)
+            columns = get_column_names(db_name, table_name, limit)
         elif choice == "4":
+            db_name = input("데이터를 추출할 데이터베이스 이름을 입력하세요: ")
             table_name = input("데이터를 가져올 테이블 이름을 입력하세요: ")
             column_name = input("데이터를 가져올 컬럼 이름을 입력하세요 (ALL 입력 시 모든 컬럼의 데이터 추출): ").strip().upper()
             limit = input("추출할 데이터 개수를 입력하세요 (ALL 입력 시 전체 추출): ").strip().upper()
 
             if column_name == "ALL":
-                columns = get_column_names(table_name)
+                columns = get_column_names(db_name, table_name)
                 all_data = {column: get_column_data(table_name, column, limit) for column in columns}
                 max_length = max(len(v) for v in all_data.values())
                 for column in all_data:
