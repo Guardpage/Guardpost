@@ -1,0 +1,9 @@
+Interceptor.attach(Module.findExportByName("RTSessionClientDll", "SaveSSOIDInfo_DU"), {  
+  onEnter: function (log, args, state) {  
+    for (var i = 0; i < 100; i++) {  
+	console.log("argument"+ i + ":" + args[i].readUtf8String());  
+	 
+    }  
+  }  
+});
+<< js코드 만들었는데 결과 값이 안나오는데 로직 문제인가?
