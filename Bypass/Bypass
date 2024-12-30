@@ -64,3 +64,10 @@ DB 계정 정보 파일
 정보누출
 - 소스 코드 내 민감한 정보(관리자 계정 등)가 하드코딩되어 있는지 확인
 
+Solution Bypass
+
+1. Pssusend
+프로세스 일시 중단 : ssuspend "process name"
+
+2.Solution 정책으로 인해 프로그램 차단
+차단된 프로그램 명 변경을 통한 정책 우회 : Burpsuite.exe -> Burpsuite2.exe
