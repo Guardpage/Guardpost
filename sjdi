@@ -1,5 +1,0 @@
-onEnter: function (log, args, state) {
-  for (var i = 0; i < args.length; i++) {
-    console.log("argument"+ i + ": " + args[i].readUtf8String());
-  }
-}
