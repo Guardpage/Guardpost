@@ -1,0 +1,59 @@
+1.Docker 설치
+
+패키지 업데이트
+sudo apt-get update
+sudo apt-get install -y apt-transport-https ca-certificates curl software-properties-common
+
+Docker 설치
+sudo apt-get update
+sudo apt-get install -y docker-ce docker-ce-cli containerd.io
+
+Docker GPD 키 추가
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+
+Docker 저장소 설정
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+
+Docker 서비스 확인 명령어
+sudo systemctl start docker
+sudo systemctl enable docker
+sudo systemctl status docker
+
+Docker Compose 설치
+sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+
+Docker 일반 사용자 실행 설정 (sudo 권한 없이)
+sudo groupadd docker
+sudo usermod -aG docker $USER
+newgrp docker
+
+Docker 실행 권한 부여
+sudo chmod +x /usr/local/bin/docker-compose
+
+git 허브 저장소 다운로드
+git clone https://github.com/vulhub/vulhub.git
+
+git 허브 저장소 이동
+cd vulhub
+
+
+
+2. Docker 실행
+Docker Compose 실행
+docker-compose build
+docker-compose up -d
+
+Docker Compose ps 확인
+Docker ps
+
+Docker 컨테이너 삭제
+docker-compose down
+docker system prune -af
+
+
+Docker 컨테이너 내부 접속
+docker exec -u root -it <컨테이너_ID_또는_이름> /bin/bash
+
+Docker 재시작
+docker restart [docker name]
+
