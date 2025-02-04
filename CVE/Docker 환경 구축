@@ -57,3 +57,8 @@ docker exec -u root -it <컨테이너_ID_또는_이름> /bin/bash
 Docker 재시작
 docker restart [docker name]
 
+Docker images 삭제
+docker images
+docker stop <IMAGE_ID>
+docker rm <IMAGE_ID>
+
