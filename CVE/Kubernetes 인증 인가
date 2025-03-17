@@ -79,6 +79,14 @@ EOF
 # 파드 상태 확인 (Running 상태 확인)
 kubectl get pods -n default
 
+#파드 상태가 pending일 경우 해결 방법
+ 현재 Control Plane 노드 확인
+ kubectl get nodes
+
+여기서 나온 노드 이름을 기억
+Control Plane Taint 제거
+kubectl taint nodes <노드이름> node-role.kubernetes.io/control-plane-
+
 🔥 5. kubelet API 활용하여 공격 실습
 
 # kubelet API 직접 호출 (파드 목록 가져오기)
